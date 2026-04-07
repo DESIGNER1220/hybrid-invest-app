@@ -1,9 +1,10 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import RegisterForm from "./RegisterForm";
 
-export default function RegisterPage() {
+function RegisterContent() {
   const searchParams = useSearchParams();
   const refFromUrl = searchParams.get("ref");
 
@@ -23,5 +24,19 @@ export default function RegisterPage() {
         <RegisterForm initialReferral={refFromUrl} />
       </div>
     </main>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-4 py-10 text-white">
+          <p>Carregando...</p>
+        </main>
+      }
+    >
+      <RegisterContent />
+    </Suspense>
   );
 }
