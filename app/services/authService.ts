@@ -19,10 +19,15 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 
-// 🔹 Gerar código de referral
+// 🔹 Gerar código de referral completo
 function generateReferralCode(email: string) {
-  const base = email.split("@")[0].toUpperCase().slice(0, 6);
-  const random = Math.floor(1000 + Math.random() * 9000);
+  const base = email
+    .split("@")[0]
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toUpperCase()
+    .slice(0, 4)
+    .padEnd(4, "X");
+  const random = Math.random().toString(36).slice(2, 8).toUpperCase();
   return `${base}${random}`;
 }
 
@@ -30,6 +35,7 @@ function generateReferralCode(email: string) {
 export async function registerUser(
   email: string,
   password: string,
+  phone: string,
   ref?: string | null
 ) {
   const userCredential = await createUserWithEmailAndPassword(
@@ -41,16 +47,18 @@ export async function registerUser(
   const user = userCredential.user;
 
   const referralCode = generateReferralCode(email);
+  const referredBy = ref?.trim() || null;
 
   // 🔹 Criar usuário no Firestore
   await setDoc(doc(db, "users", user.uid), {
     uid: user.uid,
     email: user.email,
+    phone,
     balance: 0,
     bonus: 0,
     referrals: 0,
     referralCode,
-    referredBy: ref || null,
+    referredBy,
     createdAt: serverTimestamp(),
   });
 
