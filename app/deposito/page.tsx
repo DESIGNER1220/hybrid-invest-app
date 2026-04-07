@@ -44,17 +44,16 @@ export default function DepositoPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-4 pb-28 pt-6 text-white">
-      <div className="mx-auto max-w-3xl">
-        <h1 className="text-3xl font-bold">Depósito</h1>
-        <p className="mt-2 text-slate-300">
-          Escolha o método e envie o seu pedido de depósito.
-        </p>
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-4 py-6 text-white">
+      <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur sm:p-8">
+        <div className="mb-6 text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-400">
+            Hybrid Invest
+          </p>
+          <h1 className="mt-3 text-3xl font-bold sm:text-4xl">Depósito</h1>
+        </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-6 space-y-5"
-        >
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="mb-2 block text-sm text-slate-200">Método</label>
             <select
@@ -94,7 +93,7 @@ export default function DepositoPage() {
           <button
             type="submit"
             disabled={loading}
-            className="rounded-2xl bg-emerald-500 px-5 py-3 font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-70"
+            className="w-full rounded-2xl bg-emerald-500 px-4 py-3 font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-70"
           >
             {loading ? "Enviando..." : "Enviar depósito"}
           </button>

@@ -74,12 +74,14 @@ export default function AdminPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-4 pb-28 pt-6 text-white">
       <div className="mx-auto max-w-4xl">
-        <h1 className="text-3xl font-bold">Admin</h1>
-        <p className="mt-2 text-slate-300">
-          Aprovação de depósitos e levantamentos.
-        </p>
+        <div className="mb-6 text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-400">
+            Hybrid Invest
+          </p>
+          <h1 className="mt-3 text-3xl font-bold sm:text-4xl">Admin</h1>
+        </div>
 
-        <div className="mt-6 space-y-4">
+        <div className="space-y-4">
           {loading ? (
             <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
               <p className="text-slate-400">Carregando...</p>
