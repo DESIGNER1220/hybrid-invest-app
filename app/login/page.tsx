@@ -27,26 +27,23 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-4 py-10 text-white">
-      <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur">
-        <div className="mb-8 text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.35em] text-amber-400">
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-4 py-6 text-white">
+      <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur sm:p-8">
+        <div className="mb-6 text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-400">
             Hybrid Invest
           </p>
-          <h1 className="mt-4 text-4xl font-bold">Login</h1>
-          <p className="mt-2 text-sm text-slate-300">
-            Entre usando o número de telefone e a senha.
-          </p>
+          <h1 className="mt-3 text-3xl font-bold sm:text-4xl">Login</h1>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-5">
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="mb-2 block text-sm text-slate-200">
               Número de telefone
             </label>
             <input
               type="text"
-              placeholder="Ex: 84 000 0000"
+              placeholder="Ex: 840000000"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               required
@@ -75,7 +72,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-slate-300">
+        <p className="mt-5 text-center text-sm text-slate-300">
           Ainda não tem conta?{" "}
           <Link
             href="/register"
