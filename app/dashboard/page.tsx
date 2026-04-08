@@ -31,9 +31,15 @@ type TransactionItem = {
   };
 };
 
+type UserProfile = {
+  balance?: number;
+  totalProfit?: number;
+  role?: string;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
-  const [userData, setUserData] = useState<any>(null);
+  const [userData, setUserData] = useState<UserProfile | null>(null);
   const [transactions, setTransactions] = useState<TransactionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [buyingPlanId, setBuyingPlanId] = useState<string | null>(null);
@@ -44,7 +50,7 @@ export default function DashboardPage() {
       getUserTransactions(uid),
     ]);
 
-    setUserData(profile);
+    setUserData((profile as UserProfile) || null);
     setTransactions((userTransactions as TransactionItem[]) || []);
   }
 
@@ -70,6 +76,7 @@ export default function DashboardPage() {
 
   const balance = Number(userData?.balance ?? 0);
   const totalProfit = Number(userData?.totalProfit ?? 0);
+  const isAdmin = userData?.role === "admin";
 
   const totalDeposits = useMemo(() => {
     return transactions
@@ -138,6 +145,17 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-3 pb-24 pt-3 text-white">
       <div className="mx-auto max-w-md">
+        {isAdmin && (
+          <div className="mb-3">
+            <button
+              onClick={() => router.push("/admin")}
+              className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500"
+            >
+              Abrir painel do administrador
+            </button>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-lg">
             <p className="text-xs text-slate-400">Saldo</p>
