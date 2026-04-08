@@ -68,6 +68,8 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
   },
 ];
 
+const ADMIN_PHONE = "869933273";
+
 function normalizePhone(phone: string) {
   return phone.replace(/\D/g, "");
 }
@@ -76,11 +78,31 @@ function round2(value: number) {
   return Math.round(value * 100) / 100;
 }
 
-function generateReferralCode(email: string, phone: string) {
-  const emailPart = email.split("@")[0].slice(0, 4).toUpperCase();
-  const phonePart = normalizePhone(phone).slice(-4);
-  const random = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `${emailPart}${phonePart}${random}`;
+async function generateUniqueReferralCode(phone: string) {
+  const phoneNormalized = normalizePhone(phone);
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const maxAttempts = 50;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const randomLetters =
+      letters[Math.floor(Math.random() * letters.length)] +
+      letters[Math.floor(Math.random() * letters.length)];
+
+    const referralCode = `${phoneNormalized}${randomLetters}`;
+
+    const refQuery = query(
+      collection(db, "users"),
+      where("referralCode", "==", referralCode)
+    );
+
+    const refSnap = await getDocs(refQuery);
+
+    if (refSnap.empty) {
+      return referralCode;
+    }
+  }
+
+  throw new Error("Não foi possível gerar um código de referência único.");
 }
 
 export async function registerUser(params: {
@@ -124,7 +146,8 @@ export async function registerUser(params: {
   );
 
   const user = userCredential.user;
-  const referralCode = generateReferralCode(email, phone);
+  const referralCode = await generateUniqueReferralCode(phone);
+  const role = phoneNormalized === ADMIN_PHONE ? "admin" : "user";
 
   await setDoc(doc(db, "users", user.uid), {
     uid: user.uid,
@@ -137,7 +160,7 @@ export async function registerUser(params: {
     bonus: 0,
     totalProfit: 0,
     referrals: 0,
-    role: "user",
+    role,
     createdAt: serverTimestamp(),
   });
 
@@ -203,12 +226,17 @@ export async function createTransaction(params: {
   method: PaymentMethod;
   phone: string;
   amount: number;
+  transactionCode?: string;
 }) {
-  const { uid, type, method, phone, amount } = params;
+  const { uid, type, method, phone, amount, transactionCode } = params;
 
   if (!uid) throw new Error("Utilizador inválido.");
   if (!phone.trim()) throw new Error("Informe o número.");
   if (!amount || amount <= 0) throw new Error("Informe um valor válido.");
+
+  if (type === "deposito" && !transactionCode?.trim()) {
+    throw new Error("Informe o ID da transação.");
+  }
 
   await addDoc(collection(db, "transactions"), {
     uid,
@@ -216,6 +244,7 @@ export async function createTransaction(params: {
     method,
     phone,
     amount: Number(amount),
+    transactionCode: transactionCode?.trim() || "",
     status: "pendente",
     createdAt: serverTimestamp(),
   });
@@ -289,6 +318,36 @@ export async function approveTransaction(transactionId: string) {
       tx.update(userRef, {
         balance: round2(currentBalance + amount),
       });
+
+      const referredBy = userData.referredBy;
+
+      if (referredBy) {
+        const refQuery = query(
+          collection(db, "users"),
+          where("referralCode", "==", referredBy)
+        );
+
+        const refSnap = await getDocs(refQuery);
+
+        if (!refSnap.empty) {
+          const referrerDoc = refSnap.docs[0];
+          const referrerData: any = referrerDoc.data();
+          const commission = round2(amount * 0.05);
+
+          tx.update(referrerDoc.ref, {
+            bonus: round2(Number(referrerData.bonus ?? 0) + commission),
+          });
+
+          await addDoc(collection(db, "referralEarnings"), {
+            referrerId: referrerDoc.id,
+            fromUserId: transactionData.uid,
+            depositTransactionId: transactionId,
+            depositAmount: amount,
+            commissionAmount: commission,
+            createdAt: serverTimestamp(),
+          });
+        }
+      }
     }
 
     if (transactionData.type === "levantamento") {
@@ -356,7 +415,7 @@ export async function buyInvestmentPlan(params: {
     const currentBalance = Number(userData.balance ?? 0);
 
     if (currentBalance < plan.amount) {
-      throw new Error("Saldo insuficiente para investir neste plano.");
+      throw new Error("Saldo insuficiente");
     }
 
     const totalProfitForPlan = round2(
@@ -365,7 +424,9 @@ export async function buyInvestmentPlan(params: {
 
     tx.update(userRef, {
       balance: round2(currentBalance - plan.amount),
-      totalProfit: round2(Number(userData.totalProfit ?? 0) + totalProfitForPlan),
+      totalProfit: round2(
+        Number(userData.totalProfit ?? 0) + totalProfitForPlan
+      ),
     });
   });
 
@@ -384,6 +445,26 @@ export async function buyInvestmentPlan(params: {
 
 export async function getUserInvestments(uid: string) {
   const q = query(collection(db, "investments"), where("uid", "==", uid));
+  const snapshot = await getDocs(q);
+
+  const data = snapshot.docs.map((item) => ({
+    id: item.id,
+    ...item.data(),
+  }));
+
+  return data.sort((a: any, b: any) => {
+    const aSec = a.createdAt?.seconds ?? 0;
+    const bSec = b.createdAt?.seconds ?? 0;
+    return bSec - aSec;
+  });
+}
+
+export async function getReferralEarnings(referrerId: string) {
+  const q = query(
+    collection(db, "referralEarnings"),
+    where("referrerId", "==", referrerId)
+  );
+
   const snapshot = await getDocs(q);
 
   const data = snapshot.docs.map((item) => ({
