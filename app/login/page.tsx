@@ -11,14 +11,22 @@ export default function LoginPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
     try {
       setLoading(true);
+      setSuccessMessage("");
+
       await loginUserByPhone(phone, password);
-      router.push("/dashboard");
+
+      setSuccessMessage("Sucesso");
+
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 1500);
     } catch (error: any) {
       alert(error?.message || "Erro ao entrar");
     } finally {
@@ -27,14 +35,23 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-4 py-6 text-white">
-      <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur sm:p-8">
+    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-4 py-6 text-white">
+      <div className="mx-auto mt-10 max-w-md rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl">
         <div className="mb-6 text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-400">
-            Hybrid Invest
+          <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-amber-400">
+            HYBRID INVEST
           </p>
-          <h1 className="mt-3 text-3xl font-bold sm:text-4xl">Login</h1>
+          <h1 className="mt-3 text-4xl font-bold">Login</h1>
+          <p className="mt-2 text-sm text-slate-300">
+            Entre usando o número de telefone e a senha.
+          </p>
         </div>
+
+        {successMessage && (
+          <div className="mb-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
+            <p className="text-lg font-bold text-emerald-400">{successMessage}</p>
+          </div>
+        )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>

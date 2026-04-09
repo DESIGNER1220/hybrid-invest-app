@@ -28,14 +28,87 @@ export type InvestmentPlan = {
   amount: number;
   dailyRate: number;
   durationDays: number;
+  finalReturn?: number;
+  isPremium?: boolean;
 };
 
 export const INVESTMENT_PLANS: InvestmentPlan[] = [
-  { id: "hybr-1", name: "HYBR-1", amount: 100, dailyRate: 1.9, durationDays: 21 },
-  { id: "hybr-2", name: "HYBR-2", amount: 350, dailyRate: 1.5, durationDays: 21 },
-  { id: "hybr-3", name: "HYBR-3", amount: 500, dailyRate: 2.1, durationDays: 30 },
-  { id: "hybr-4", name: "HYBR-4", amount: 1000, dailyRate: 3.0, durationDays: 45 },
-  { id: "hybr-5", name: "HYBR-5", amount: 1500, dailyRate: 2.7, durationDays: 90 },
+  {
+    id: "premium-1",
+    name: "HYBRD PREMIUM 1",
+    amount: 1000,
+    dailyRate: 14.7,
+    durationDays: 15,
+    finalReturn: 3205,
+    isPremium: true,
+  },
+  {
+    id: "premium-2",
+    name: "HYBRD PREMIUM 2",
+    amount: 100,
+    dailyRate: 13.6666667,
+    durationDays: 15,
+    finalReturn: 305,
+    isPremium: true,
+  },
+  {
+    id: "premium-3",
+    name: "HYBRD PREMIUM 3",
+    amount: 500,
+    dailyRate: 14.7333333,
+    durationDays: 15,
+    finalReturn: 1605,
+    isPremium: true,
+  },
+  {
+    id: "premium-4",
+    name: "HYBRD PREMIUM 4",
+    amount: 10000,
+    dailyRate: 10.1366667,
+    durationDays: 15,
+    finalReturn: 25205,
+    isPremium: true,
+  },
+  {
+    id: "hybr-1",
+    name: "HYBR-1",
+    amount: 100,
+    dailyRate: 1.9,
+    durationDays: 21,
+    isPremium: false,
+  },
+  {
+    id: "hybr-2",
+    name: "HYBR-2",
+    amount: 350,
+    dailyRate: 1.5,
+    durationDays: 21,
+    isPremium: false,
+  },
+  {
+    id: "hybr-3",
+    name: "HYBR-3",
+    amount: 500,
+    dailyRate: 2.1,
+    durationDays: 30,
+    isPremium: false,
+  },
+  {
+    id: "hybr-4",
+    name: "HYBR-4",
+    amount: 1000,
+    dailyRate: 3.0,
+    durationDays: 45,
+    isPremium: false,
+  },
+  {
+    id: "hybr-5",
+    name: "HYBR-5",
+    amount: 1500,
+    dailyRate: 2.7,
+    durationDays: 90,
+    isPremium: false,
+  },
 ];
 
 const ADMIN_PHONE = "869933273";
@@ -454,6 +527,8 @@ export async function buyInvestmentPlan(params: {
     dailyRate: plan.dailyRate,
     durationDays: plan.durationDays,
     totalProfit: round2(plan.amount * (plan.dailyRate / 100) * plan.durationDays),
+    finalReturn: plan.finalReturn ?? null,
+    isPremium: !!plan.isPremium,
     status: "ativo",
     createdAt: serverTimestamp(),
   });

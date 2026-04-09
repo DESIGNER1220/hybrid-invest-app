@@ -7,6 +7,17 @@ import { auth } from "../lib/firebase";
 import { createTransaction, getUserProfile } from "../services/authService";
 import BottomNav from "../components/BottomNav";
 
+function isWithdrawalAllowedNow() {
+  const now = new Date();
+  const day = now.getDay(); // 0 domingo, 1 segunda ... 6 sábado
+  const hour = now.getHours();
+
+  const isMondayToSaturday = day >= 1 && day <= 6;
+  const isAllowedHour = hour >= 9 && hour < 22;
+
+  return isMondayToSaturday && isAllowedHour;
+}
+
 export default function LevantamentoPage() {
   const router = useRouter();
   const [uid, setUid] = useState("");
@@ -37,8 +48,25 @@ export default function LevantamentoPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!uid) return alert("Utilizador não autenticado.");
-    if (!amount || Number(amount) <= 0) return alert("Informe um valor válido.");
+    if (!uid) {
+      alert("Utilizador não autenticado.");
+      return;
+    }
+
+    if (!amount || Number(amount) <= 0) {
+      alert("Informe um valor válido.");
+      return;
+    }
+
+    if (Number(amount) < 150) {
+      alert("Levantamento mínimo é 150 MZN");
+      return;
+    }
+
+    if (!isWithdrawalAllowedNow()) {
+      alert("Horário de levantamento: segunda a sábado das 9h até 22h");
+      return;
+    }
 
     const totalAvailable = balance + profit;
 
@@ -92,6 +120,19 @@ export default function LevantamentoPage() {
         </div>
 
         <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+          <p className="text-xs text-slate-400">Regras de levantamento</p>
+
+          <div className="mt-3 space-y-2 rounded-lg bg-slate-950/40 p-3 text-xs text-slate-300">
+            <p>
+              Valor mínimo: <span className="font-semibold text-amber-400">150 MZN</span>
+            </p>
+            <p>
+              Horário: <span className="font-semibold text-amber-400">segunda a sábado, 9h às 22h</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
           <p className="text-xs text-slate-400">O valor será enviado para</p>
 
           <div className="mt-3 space-y-2 rounded-lg bg-slate-950/40 p-3">
@@ -113,7 +154,7 @@ export default function LevantamentoPage() {
               <label className="mb-1 block text-xs text-slate-300">Valor</label>
               <input
                 type="number"
-                min="1"
+                min="150"
                 step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}

@@ -20,12 +20,14 @@ export default function RegisterForm({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [referral, setReferral] = useState(initialReferral || "");
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   async function handleRegister(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
     try {
       setLoading(true);
+      setSuccessMessage("");
 
       await registerUser({
         email,
@@ -35,8 +37,11 @@ export default function RegisterForm({
         refCode: referral || null,
       });
 
-      alert("Conta criada com sucesso!");
-      router.push("/dashboard");
+      setSuccessMessage("Sucesso");
+
+      setTimeout(() => {
+        router.push("/login");
+      }, 1500);
     } catch (error: any) {
       alert(error?.message || "Erro ao criar conta");
     } finally {
@@ -46,6 +51,12 @@ export default function RegisterForm({
 
   return (
     <>
+      {successMessage && (
+        <div className="mb-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
+          <p className="text-lg font-bold text-emerald-400">{successMessage}</p>
+        </div>
+      )}
+
       <form onSubmit={handleRegister} className="space-y-4">
         <div>
           <label className="mb-2 block text-sm text-slate-200">Email</label>
