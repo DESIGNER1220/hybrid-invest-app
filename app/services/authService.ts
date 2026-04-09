@@ -165,6 +165,31 @@ async function generateUniqueReferralCode(phone: string) {
   throw new Error("Não foi possível gerar um código de referência único.");
 }
 
+function normalizeBonusCode(code: string) {
+  return code.trim().toUpperCase();
+}
+
+export async function generateRandomBonusCode() {
+  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+  for (let attempt = 0; attempt < 50; attempt++) {
+    let code = "BONUS-";
+
+    for (let i = 0; i < 8; i++) {
+      code += letters[Math.floor(Math.random() * letters.length)];
+    }
+
+    const bonusRef = doc(db, "bonusCodes", code);
+    const bonusSnap = await getDoc(bonusRef);
+
+    if (!bonusSnap.exists()) {
+      return code;
+    }
+  }
+
+  throw new Error("Não foi possível gerar código de bónus.");
+}
+
 export async function registerUser(params: {
   email: string;
   phone: string;
@@ -399,6 +424,7 @@ export async function approveTransaction(transactionId: string) {
     const userData: any = userSnap.data();
     const currentBalance = Number(userData.balance ?? 0);
     const currentTotalProfit = Number(userData.totalProfit ?? 0);
+    const currentBonus = Number(userData.bonus ?? 0);
     const amount = Number(transactionData.amount ?? 0);
 
     if (transactionData.type === "deposito") {
@@ -438,26 +464,44 @@ export async function approveTransaction(transactionId: string) {
     }
 
     if (transactionData.type === "levantamento") {
-      const available = currentBalance + currentTotalProfit;
+      const available = currentBalance + currentTotalProfit + currentBonus;
 
       if (available < amount) {
         throw new Error("Saldo insuficiente para aprovar levantamento.");
       }
 
+      let remaining = amount;
       let newBalance = currentBalance;
       let newTotalProfit = currentTotalProfit;
+      let newBonus = currentBonus;
 
-      if (newBalance >= amount) {
-        newBalance = newBalance - amount;
+      if (newBalance >= remaining) {
+        newBalance -= remaining;
+        remaining = 0;
       } else {
-        const remaining = amount - newBalance;
+        remaining -= newBalance;
         newBalance = 0;
-        newTotalProfit = Math.max(0, newTotalProfit - remaining);
+      }
+
+      if (remaining > 0) {
+        if (newTotalProfit >= remaining) {
+          newTotalProfit -= remaining;
+          remaining = 0;
+        } else {
+          remaining -= newTotalProfit;
+          newTotalProfit = 0;
+        }
+      }
+
+      if (remaining > 0) {
+        newBonus = Math.max(0, newBonus - remaining);
+        remaining = 0;
       }
 
       tx.update(userRef, {
         balance: round2(newBalance),
         totalProfit: round2(newTotalProfit),
+        bonus: round2(newBonus),
       });
     }
 
@@ -585,5 +629,115 @@ export async function getReferralEarnings(referrerId: string) {
     const aSec = a.createdAt?.seconds ?? 0;
     const bSec = b.createdAt?.seconds ?? 0;
     return bSec - aSec;
+  });
+}
+
+export async function createBonusCode(params: {
+  code: string;
+  amount: number;
+  createdBy: string;
+}) {
+  const code = normalizeBonusCode(params.code);
+  const amount = Number(params.amount);
+
+  if (!code) {
+    throw new Error("Informe o código.");
+  }
+
+  if (!amount || amount <= 0) {
+    throw new Error("Informe um valor válido.");
+  }
+
+  const existing = await getDoc(doc(db, "bonusCodes", code));
+
+  if (existing.exists()) {
+    throw new Error("Este código já existe.");
+  }
+
+  await setDoc(doc(db, "bonusCodes", code), {
+    code,
+    amount,
+    isActive: true,
+    used: false,
+    usedBy: null,
+    usedAt: null,
+    createdBy: params.createdBy,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function getBonusCodes() {
+  const snapshot = await getDocs(collection(db, "bonusCodes"));
+
+  const data = snapshot.docs.map((item) => ({
+    id: item.id,
+    ...item.data(),
+  }));
+
+  return data.sort((a: any, b: any) => {
+    const aSec = a.createdAt?.seconds ?? 0;
+    const bSec = b.createdAt?.seconds ?? 0;
+    return bSec - aSec;
+  });
+}
+
+export async function deactivateBonusCode(code: string) {
+  const normalizedCode = normalizeBonusCode(code);
+
+  await updateDoc(doc(db, "bonusCodes", normalizedCode), {
+    isActive: false,
+  });
+}
+
+export async function activateBonusCode(code: string) {
+  const normalizedCode = normalizeBonusCode(code);
+
+  await updateDoc(doc(db, "bonusCodes", normalizedCode), {
+    isActive: true,
+  });
+}
+
+export async function redeemBonusCode(uid: string, code: string) {
+  const normalizedCode = normalizeBonusCode(code);
+  const bonusRef = doc(db, "bonusCodes", normalizedCode);
+  const userRef = doc(db, "users", uid);
+
+  await runTransaction(db, async (tx) => {
+    const bonusSnap = await tx.get(bonusRef);
+
+    if (!bonusSnap.exists()) {
+      throw new Error("Código inválido");
+    }
+
+    const bonusData: any = bonusSnap.data();
+
+    if (!bonusData.isActive) {
+      throw new Error("Código inativo");
+    }
+
+    if (bonusData.used) {
+      throw new Error("Código já utilizado");
+    }
+
+    const userSnap = await tx.get(userRef);
+
+    if (!userSnap.exists()) {
+      throw new Error("Utilizador não encontrado");
+    }
+
+    const userData: any = userSnap.data();
+    const currentBonus = Number(userData.bonus ?? 0);
+    const bonusAmount = Number(bonusData.amount ?? 0);
+
+    tx.update(userRef, {
+      bonus: round2(currentBonus + bonusAmount),
+    });
+
+    tx.update(bonusRef, {
+      used: true,
+      isActive: false,
+      usedBy: uid,
+      usedAt: serverTimestamp(),
+    });
   });
 }

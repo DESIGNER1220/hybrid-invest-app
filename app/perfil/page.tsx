@@ -176,6 +176,13 @@ export default function PerfilPage() {
           </div>
         </div>
 
+        <button
+          onClick={() => router.push("/bonus")}
+          className="w-full rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-black transition hover:bg-amber-400"
+        >
+          Bónus
+        </button>
+
         <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-lg">
           <h2 className="text-sm font-semibold text-white">Seu link de convite</h2>
 

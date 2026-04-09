@@ -40,6 +40,7 @@ type TransactionItem = {
 type UserProfile = {
   balance?: number;
   totalProfit?: number;
+  bonus?: number;
   role?: string;
 };
 
@@ -82,6 +83,7 @@ export default function DashboardPage() {
 
   const balance = Number(userData?.balance ?? 0);
   const totalProfit = Number(userData?.totalProfit ?? 0);
+  const bonus = Number(userData?.bonus ?? 0);
   const isAdmin = userData?.role === "admin";
 
   const totalDeposits = useMemo(() => {
@@ -99,8 +101,8 @@ export default function DashboardPage() {
   }, [transactions]);
 
   const visibleBalance = useMemo(() => {
-    return balance + totalProfit;
-  }, [balance, totalProfit]);
+    return balance + totalProfit + bonus;
+  }, [balance, totalProfit, bonus]);
 
   async function handleRentPlan(planId: string) {
     const currentUser = auth.currentUser;
@@ -207,6 +209,13 @@ export default function DashboardPage() {
               Levantar
             </button>
           </div>
+        </div>
+
+        <div className="mt-2 rounded-xl border border-white/10 bg-white/5 p-3">
+          <p className="text-xs text-slate-400">Bónus acumulado</p>
+          <h3 className="mt-1 text-base font-bold text-blue-400">
+            {bonus.toLocaleString("pt-MZ")} MZN
+          </h3>
         </div>
 
         <div className="mt-4 space-y-4">
