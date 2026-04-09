@@ -14,6 +14,7 @@ export default function DepositoPage() {
   const [amount, setAmount] = useState("");
   const [transactionCode, setTransactionCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const mpesaNumber = "849429961";
   const mpesaOwner = "flavia";
@@ -42,6 +43,7 @@ export default function DepositoPage() {
 
     try {
       setSubmitting(true);
+      setSuccessMessage("");
 
       await createTransaction({
         uid,
@@ -52,8 +54,11 @@ export default function DepositoPage() {
         transactionCode: transactionCode.trim().toUpperCase(),
       });
 
-      alert("Sucesso. Aguarde o administrador aceitar ou rejeitar.");
-      router.push("/dashboard");
+      setSuccessMessage("Sucesso");
+
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 1500);
     } catch (error: any) {
       alert(error?.message || "Erro ao enviar depósito.");
     } finally {
@@ -65,6 +70,12 @@ export default function DepositoPage() {
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-3 pb-24 pt-3 text-white">
       <div className="mx-auto max-w-md space-y-3">
         <h1 className="text-xl font-bold">Depósito</h1>
+
+        {successMessage && (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
+            <p className="text-lg font-bold text-emerald-400">{successMessage}</p>
+          </div>
+        )}
 
         <div className="rounded-xl border border-white/10 bg-white/5 p-3">
           <p className="text-xs text-slate-400">Enviar valor para</p>
@@ -107,10 +118,6 @@ export default function DepositoPage() {
                 placeholder="Ex: DBI2JAJX"
                 className="w-full rounded-lg border border-white/10 bg-slate-950/40 px-3 py-2 text-sm uppercase text-white outline-none"
               />
-            </div>
-
-            <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-300">
-              Depois de enviar o valor e preencher o ID da transação, clique em confirmar e aguarde o administrador aceitar ou rejeitar.
             </div>
 
             <button

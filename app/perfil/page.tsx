@@ -14,9 +14,7 @@ import BottomNav from "../components/BottomNav";
 type UserProfile = {
   phone?: string;
   referralCode?: string;
-  referrals?: number;
   bonus?: number;
-  role?: string;
 };
 
 type ReferralEarning = {
@@ -76,10 +74,7 @@ export default function PerfilPage() {
 
   const phone = userData?.phone || "Não disponível";
   const referralCode = userData?.referralCode || "Sem código";
-  const referrals = Number(userData?.referrals ?? 0);
   const bonus = Number(userData?.bonus ?? 0);
-  const role = userData?.role || "user";
-  const roleLabel = role === "admin" ? "Administrador" : "Utilizador";
 
   const inviteLink = useMemo(() => {
     if (!referralCode || referralCode === "Sem código") return "";
@@ -160,22 +155,10 @@ export default function PerfilPage() {
           </div>
 
           <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-lg">
-            <p className="text-[11px] text-slate-400">Tipo de conta</p>
-            <h3 className="mt-1 text-sm font-bold text-amber-400">
-              {roleLabel}
-            </h3>
-          </div>
-
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-lg">
             <p className="text-[11px] text-slate-400">Código de referência</p>
             <h3 className="mt-1 break-all text-sm font-bold text-amber-400">
               {referralCode}
             </h3>
-          </div>
-
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-lg">
-            <p className="text-[11px] text-slate-400">Total de convites</p>
-            <h3 className="mt-1 text-base font-bold text-white">{referrals}</h3>
           </div>
 
           <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-lg">

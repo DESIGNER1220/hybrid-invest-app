@@ -16,6 +16,9 @@ type InvestmentItem = {
   totalProfit: number;
   status: string;
   createdAt?: { seconds?: number };
+  elapsedDays?: number;
+  remainingDays?: number;
+  accruedProfit?: number;
 };
 
 function formatDate(timestamp?: { seconds?: number }) {
@@ -26,12 +29,6 @@ function formatDate(timestamp?: { seconds?: number }) {
     month: "2-digit",
     year: "numeric",
   });
-}
-
-function calculateDaysPassed(timestamp?: { seconds?: number }) {
-  if (!timestamp?.seconds) return 0;
-  const created = new Date(timestamp.seconds * 1000).getTime();
-  return Math.max(0, Math.floor((Date.now() - created) / (1000 * 60 * 60 * 24)));
 }
 
 export default function AtivosPage() {
@@ -74,8 +71,12 @@ export default function AtivosPage() {
     [activeInvestments]
   );
 
-  const totalEstimatedProfit = useMemo(
-    () => activeInvestments.reduce((sum, item) => sum + Number(item.totalProfit || 0), 0),
+  const totalAccruedProfit = useMemo(
+    () =>
+      activeInvestments.reduce(
+        (sum, item) => sum + Number(item.accruedProfit || 0),
+        0
+      ),
     [activeInvestments]
   );
 
@@ -108,9 +109,9 @@ export default function AtivosPage() {
           </div>
 
           <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-            <p className="text-xs text-slate-400">Lucro estimado</p>
+            <p className="text-xs text-slate-400">Lucro acumulado</p>
             <h3 className="mt-1 text-lg font-bold text-emerald-400">
-              {totalEstimatedProfit.toLocaleString("pt-MZ")} MZN
+              {totalAccruedProfit.toLocaleString("pt-MZ")} MZN
             </h3>
           </div>
         </div>
@@ -128,22 +129,16 @@ export default function AtivosPage() {
         ) : (
           <div className="space-y-3">
             {activeInvestments.map((item) => {
-              const daysPassed = calculateDaysPassed(item.createdAt);
-              const daysRemaining = Math.max(0, Number(item.durationDays || 0) - daysPassed);
-              const accumulatedProfit = Math.min(
-                Number(item.totalProfit || 0),
-                Number(
-                  (
-                    Number(item.amount || 0) *
-                    (Number(item.dailyRate || 0) / 100) *
-                    daysPassed
-                  ).toFixed(2)
-                )
-              );
+              const elapsedDays = Number(item.elapsedDays ?? 0);
+              const remainingDays = Number(item.remainingDays ?? 0);
+              const accruedProfit = Number(item.accruedProfit ?? 0);
 
               const progressPercent =
                 Number(item.durationDays || 0) > 0
-                  ? Math.min(100, Math.round((daysPassed / Number(item.durationDays)) * 100))
+                  ? Math.min(
+                      100,
+                      Math.round((elapsedDays / Number(item.durationDays)) * 100)
+                    )
                   : 0;
 
               return (
@@ -159,14 +154,50 @@ export default function AtivosPage() {
                   </div>
 
                   <div className="mt-3 space-y-1 text-xs text-slate-300">
-                    <p>Valor: <span className="font-semibold text-white">{Number(item.amount).toLocaleString("pt-MZ")} MZN</span></p>
-                    <p>Lucro diário: <span className="font-semibold text-emerald-400">{Number(item.dailyRate)}%</span></p>
-                    <p>Duração: <span className="font-semibold text-white">{Number(item.durationDays)} dias</span></p>
-                    <p>Início: <span className="font-semibold text-white">{formatDate(item.createdAt)}</span></p>
-                    <p>Dias decorridos: <span className="font-semibold text-white">{daysPassed}</span></p>
-                    <p>Dias restantes: <span className="font-semibold text-white">{daysRemaining}</span></p>
-                    <p>Lucro acumulado: <span className="font-semibold text-emerald-400">{accumulatedProfit.toLocaleString("pt-MZ")} MZN</span></p>
-                    <p>Lucro total: <span className="font-semibold text-white">{Number(item.totalProfit).toLocaleString("pt-MZ")} MZN</span></p>
+                    <p>
+                      Valor:{" "}
+                      <span className="font-semibold text-white">
+                        {Number(item.amount).toLocaleString("pt-MZ")} MZN
+                      </span>
+                    </p>
+                    <p>
+                      Lucro diário:{" "}
+                      <span className="font-semibold text-emerald-400">
+                        {Number(item.dailyRate)}%
+                      </span>
+                    </p>
+                    <p>
+                      Duração:{" "}
+                      <span className="font-semibold text-white">
+                        {Number(item.durationDays)} dias
+                      </span>
+                    </p>
+                    <p>
+                      Início:{" "}
+                      <span className="font-semibold text-white">
+                        {formatDate(item.createdAt)}
+                      </span>
+                    </p>
+                    <p>
+                      Dias pagos:{" "}
+                      <span className="font-semibold text-white">{elapsedDays}</span>
+                    </p>
+                    <p>
+                      Dias restantes:{" "}
+                      <span className="font-semibold text-amber-400">{remainingDays}</span>
+                    </p>
+                    <p>
+                      Lucro acumulado:{" "}
+                      <span className="font-semibold text-emerald-400">
+                        {accruedProfit.toLocaleString("pt-MZ")} MZN
+                      </span>
+                    </p>
+                    <p>
+                      Lucro total possível:{" "}
+                      <span className="font-semibold text-white">
+                        {Number(item.totalProfit).toLocaleString("pt-MZ")} MZN
+                      </span>
+                    </p>
                   </div>
 
                   <div className="mt-3">

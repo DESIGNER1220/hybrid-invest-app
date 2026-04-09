@@ -31,41 +31,11 @@ export type InvestmentPlan = {
 };
 
 export const INVESTMENT_PLANS: InvestmentPlan[] = [
-  {
-    id: "hybr-1",
-    name: "HYBR-1",
-    amount: 100,
-    dailyRate: 1.9,
-    durationDays: 21,
-  },
-  {
-    id: "hybr-2",
-    name: "HYBR-2",
-    amount: 350,
-    dailyRate: 1.5,
-    durationDays: 21,
-  },
-  {
-    id: "hybr-3",
-    name: "HYBR-3",
-    amount: 500,
-    dailyRate: 2.1,
-    durationDays: 30,
-  },
-  {
-    id: "hybr-4",
-    name: "HYBR-4",
-    amount: 1000,
-    dailyRate: 3.0,
-    durationDays: 45,
-  },
-  {
-    id: "hybr-5",
-    name: "HYBR-5",
-    amount: 1500,
-    dailyRate: 2.7,
-    durationDays: 90,
-  },
+  { id: "hybr-1", name: "HYBR-1", amount: 100, dailyRate: 1.9, durationDays: 21 },
+  { id: "hybr-2", name: "HYBR-2", amount: 350, dailyRate: 1.5, durationDays: 21 },
+  { id: "hybr-3", name: "HYBR-3", amount: 500, dailyRate: 2.1, durationDays: 30 },
+  { id: "hybr-4", name: "HYBR-4", amount: 1000, dailyRate: 3.0, durationDays: 45 },
+  { id: "hybr-5", name: "HYBR-5", amount: 1500, dailyRate: 2.7, durationDays: 90 },
 ];
 
 const ADMIN_PHONE = "869933273";
@@ -78,12 +48,31 @@ function round2(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function getElapsedFullDays(timestamp?: { seconds?: number }) {
+  if (!timestamp?.seconds) return 0;
+
+  const createdAtMs = timestamp.seconds * 1000;
+  const nowMs = Date.now();
+  const diffMs = nowMs - createdAtMs;
+
+  return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+}
+
+function calculateAccruedProfitForInvestment(investment: any) {
+  const amount = Number(investment.amount ?? 0);
+  const dailyRate = Number(investment.dailyRate ?? 0);
+  const durationDays = Number(investment.durationDays ?? 0);
+
+  const fullDays = Math.min(durationDays, getElapsedFullDays(investment.createdAt));
+
+  return round2(amount * (dailyRate / 100) * fullDays);
+}
+
 async function generateUniqueReferralCode(phone: string) {
   const phoneNormalized = normalizePhone(phone);
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  const maxAttempts = 50;
 
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+  for (let attempt = 0; attempt < 50; attempt++) {
     const randomLetters =
       letters[Math.floor(Math.random() * letters.length)] +
       letters[Math.floor(Math.random() * letters.length)];
@@ -97,9 +86,7 @@ async function generateUniqueReferralCode(phone: string) {
 
     const refSnap = await getDocs(refQuery);
 
-    if (refSnap.empty) {
-      return referralCode;
-    }
+    if (refSnap.empty) return referralCode;
   }
 
   throw new Error("Não foi possível gerar um código de referência único.");
@@ -139,12 +126,7 @@ export async function registerUser(params: {
     throw new Error("Este número de telefone já está registado.");
   }
 
-  const userCredential = await createUserWithEmailAndPassword(
-    auth,
-    email,
-    password
-  );
-
+  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   const user = userCredential.user;
   const referralCode = await generateUniqueReferralCode(phone);
   const role = phoneNormalized === ADMIN_PHONE ? "admin" : "user";
@@ -212,7 +194,39 @@ export async function logoutUser() {
   return await signOut(auth);
 }
 
+export async function syncUserProfit(uid: string) {
+  const investmentsQuery = query(
+    collection(db, "investments"),
+    where("uid", "==", uid)
+  );
+
+  const snapshot = await getDocs(investmentsQuery);
+
+  let totalAccruedProfit = 0;
+
+  snapshot.docs.forEach((item) => {
+    const data: any = item.data();
+    if (data.status === "ativo") {
+      totalAccruedProfit += calculateAccruedProfitForInvestment(data);
+    }
+  });
+
+  const roundedProfit = round2(totalAccruedProfit);
+
+  await updateDoc(doc(db, "users", uid), {
+    totalProfit: roundedProfit,
+  });
+
+  return roundedProfit;
+}
+
 export async function getUserProfile(uid: string) {
+  try {
+    await syncUserProfit(uid);
+  } catch (error) {
+    console.error("Erro ao sincronizar lucro:", error);
+  }
+
   const docRef = doc(db, "users", uid);
   const docSnap = await getDoc(docRef);
 
@@ -379,6 +393,15 @@ export async function approveTransaction(transactionId: string) {
       processedAt: serverTimestamp(),
     });
   });
+
+  const transactionSnap = await getDoc(transactionRef);
+
+  if (transactionSnap.exists()) {
+    const transactionData: any = transactionSnap.data();
+    if (transactionData?.uid) {
+      await syncUserProfit(transactionData.uid);
+    }
+  }
 }
 
 export async function rejectTransaction(transactionId: string) {
@@ -418,15 +441,8 @@ export async function buyInvestmentPlan(params: {
       throw new Error("Saldo insuficiente");
     }
 
-    const totalProfitForPlan = round2(
-      plan.amount * (plan.dailyRate / 100) * plan.durationDays
-    );
-
     tx.update(userRef, {
       balance: round2(currentBalance - plan.amount),
-      totalProfit: round2(
-        Number(userData.totalProfit ?? 0) + totalProfitForPlan
-      ),
     });
   });
 
@@ -441,16 +457,34 @@ export async function buyInvestmentPlan(params: {
     status: "ativo",
     createdAt: serverTimestamp(),
   });
+
+  await syncUserProfit(uid);
 }
 
 export async function getUserInvestments(uid: string) {
+  await syncUserProfit(uid);
+
   const q = query(collection(db, "investments"), where("uid", "==", uid));
   const snapshot = await getDocs(q);
 
-  const data = snapshot.docs.map((item) => ({
-    id: item.id,
-    ...item.data(),
-  }));
+  const data = snapshot.docs.map((item) => {
+    const investment: any = item.data();
+    const elapsedDays = getElapsedFullDays(investment.createdAt);
+    const cappedDays = Math.min(Number(investment.durationDays ?? 0), elapsedDays);
+    const remainingDays = Math.max(
+      0,
+      Number(investment.durationDays ?? 0) - cappedDays
+    );
+    const accruedProfit = calculateAccruedProfitForInvestment(investment);
+
+    return {
+      id: item.id,
+      ...investment,
+      elapsedDays: cappedDays,
+      remainingDays,
+      accruedProfit,
+    };
+  });
 
   return data.sort((a: any, b: any) => {
     const aSec = a.createdAt?.seconds ?? 0;
