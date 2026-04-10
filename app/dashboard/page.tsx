@@ -20,6 +20,13 @@ const PLAN_IMAGES: Record<string, string> = {
   "premium-2": "/plans/premium-2.png",
   "premium-3": "/plans/premium-3.png",
   "premium-4": "/plans/premium-4.png",
+
+  "new-1": "/plans/new-1.png",
+  "new-2": "/plans/new-2.png",
+  "new-3": "/plans/new-3.png",
+  "new-4": "/plans/new-4.png",
+  "new-5": "/plans/new-5.png",
+
   "hybr-1": "/plans/hybr-1-new.png",
   "hybr-2": "/plans/hybr-2-new.png",
   "hybr-3": "/plans/hybr-3-new.png",
@@ -143,7 +150,10 @@ export default function DashboardPage() {
   }
 
   const premiumPlans = INVESTMENT_PLANS.filter((plan) => plan.isPremium);
-  const normalPlans = INVESTMENT_PLANS.filter((plan) => !plan.isPremium);
+  const newPlans = INVESTMENT_PLANS.filter((plan) => plan.isNew);
+  const normalPlans = INVESTMENT_PLANS.filter(
+    (plan) => !plan.isPremium && !plan.isNew
+  );
 
   if (loading) {
     return (
@@ -219,80 +229,156 @@ export default function DashboardPage() {
         </div>
 
         <div className="mt-4 space-y-4">
-          <div>
-            <h2 className="mb-2 text-sm font-bold text-blue-400">
-              Investimentos Premium
-            </h2>
+          {premiumPlans.length > 0 && (
+            <div>
+              <h2 className="mb-2 text-sm font-bold text-blue-400">
+                Investimentos Premium
+              </h2>
 
-            <div className="space-y-4">
-              {premiumPlans.map((plan) => {
-                const imageSrc =
-                  PLAN_IMAGES[plan.id] && PLAN_IMAGES[plan.id].trim() !== ""
-                    ? PLAN_IMAGES[plan.id]
-                    : FALLBACK_IMAGE;
+              <div className="space-y-4">
+                {premiumPlans.map((plan) => {
+                  const imageSrc =
+                    PLAN_IMAGES[plan.id] && PLAN_IMAGES[plan.id].trim() !== ""
+                      ? PLAN_IMAGES[plan.id]
+                      : FALLBACK_IMAGE;
 
-                return (
-                  <div
-                    key={plan.id}
-                    className="overflow-hidden rounded-xl border border-blue-500/20 bg-white/5 shadow-lg"
-                  >
-                    <div className="relative h-32 w-full">
-                      <Image
-                        src={imageSrc}
-                        alt={plan.name}
-                        fill
-                        sizes="(max-width: 768px) 100vw, 400px"
-                        className="object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-900/20 to-transparent" />
-                      <div className="absolute left-3 top-3 flex w-[calc(100%-1.5rem)] items-center justify-between">
-                        <h3 className="text-base font-bold text-blue-300">
-                          {plan.name}
-                        </h3>
+                  return (
+                    <div
+                      key={plan.id}
+                      className="overflow-hidden rounded-xl border border-blue-500/20 bg-white/5 shadow-lg"
+                    >
+                      <div className="relative h-32 w-full">
+                        <Image
+                          src={imageSrc}
+                          alt={plan.name}
+                          fill
+                          sizes="(max-width: 768px) 100vw, 400px"
+                          className="object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-900/20 to-transparent" />
+                        <div className="absolute left-3 top-3 flex w-[calc(100%-1.5rem)] items-center justify-between">
+                          <h3 className="text-base font-bold text-blue-300">
+                            {plan.name}
+                          </h3>
 
-                        <span className="rounded-full bg-blue-600/80 px-2 py-1 text-[10px] text-white">
-                          Premium
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="p-3 text-sm">
-                      <div className="space-y-1 text-slate-300">
-                        <p>
-                          Valor de aluguer:{" "}
-                          <span className="font-semibold text-white">
-                            {plan.amount.toLocaleString("pt-MZ")} MZN
+                          <span className="rounded-full bg-blue-600/80 px-2 py-1 text-[10px] text-white">
+                            Premium
                           </span>
-                        </p>
-
-                        <p>
-                          Duração:{" "}
-                          <span className="font-semibold text-white">
-                            {plan.durationDays} dias
-                          </span>
-                        </p>
-
-                        <p>
-                          Retorno:{" "}
-                          <span className="font-semibold text-emerald-400">
-                            {Number(plan.finalReturn ?? 0).toLocaleString("pt-MZ")} MZN
-                          </span>
-                        </p>
+                        </div>
                       </div>
 
-                      <button
-                        onClick={() => handleRentPlan(plan.id)}
-                        disabled={buyingPlanId === plan.id}
-                        className="mt-3 w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:opacity-70"
-                      >
-                        {buyingPlanId === plan.id ? "Processando..." : "Alugar"}
-                      </button>
+                      <div className="p-3 text-sm">
+                        <div className="space-y-1 text-slate-300">
+                          <p>
+                            Valor de aluguer:{" "}
+                            <span className="font-semibold text-white">
+                              {plan.amount.toLocaleString("pt-MZ")} MZN
+                            </span>
+                          </p>
+
+                          <p>
+                            Duração:{" "}
+                            <span className="font-semibold text-white">
+                              {plan.durationDays} dias
+                            </span>
+                          </p>
+
+                          <p>
+                            Retorno:{" "}
+                            <span className="font-semibold text-emerald-400">
+                              {Number(plan.finalReturn ?? 0).toLocaleString("pt-MZ")} MZN
+                            </span>
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={() => handleRentPlan(plan.id)}
+                          disabled={buyingPlanId === plan.id}
+                          className="mt-3 w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:opacity-70"
+                        >
+                          {buyingPlanId === plan.id ? "Processando..." : "Alugar"}
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
+
+          {newPlans.length > 0 && (
+            <div>
+              <h2 className="mb-2 text-sm font-bold text-green-400">
+                Investimentos NEW
+              </h2>
+
+              <div className="space-y-3">
+                {newPlans.map((plan) => {
+                  const imageSrc =
+                    PLAN_IMAGES[plan.id] && PLAN_IMAGES[plan.id].trim() !== ""
+                      ? PLAN_IMAGES[plan.id]
+                      : FALLBACK_IMAGE;
+
+                  return (
+                    <div
+                      key={plan.id}
+                      className="rounded-xl border border-green-500/20 bg-white/5 p-3 shadow-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="relative h-24 w-24 overflow-hidden rounded-lg">
+                          <Image
+                            src={imageSrc}
+                            alt={plan.name}
+                            fill
+                            sizes="96px"
+                            className="object-cover"
+                          />
+                        </div>
+
+                        <div className="flex-1 text-xs text-slate-300">
+                          <h3 className="text-sm font-bold text-green-400">
+                            {plan.name}
+                          </h3>
+                          <p className="mt-1">
+                            Valor:{" "}
+                            <span className="font-semibold text-white">
+                              {plan.amount.toLocaleString("pt-MZ")} MZN
+                            </span>
+                          </p>
+                          <p>
+                            Lucro diário:{" "}
+                            <span className="font-semibold text-emerald-400">
+                              {plan.dailyRate}%
+                            </span>
+                          </p>
+                          <p>
+                            Duração:{" "}
+                            <span className="font-semibold text-white">
+                              {plan.durationDays} dias
+                            </span>
+                          </p>
+                          <p>
+                            Retorno final:{" "}
+                            <span className="font-semibold text-white">
+                              {Number(plan.finalReturn ?? 0).toLocaleString("pt-MZ")} MZN
+                            </span>
+                          </p>
+
+                          <button
+                            onClick={() => handleRentPlan(plan.id)}
+                            disabled={buyingPlanId === plan.id}
+                            className="mt-2 w-full rounded-lg bg-green-500 px-3 py-2 text-xs font-bold text-black transition hover:bg-green-400 disabled:opacity-70"
+                          >
+                            {buyingPlanId === plan.id ? "Processando..." : "Abrir / Alugar"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div>
             <h2 className="mb-2 text-sm font-bold text-amber-400">

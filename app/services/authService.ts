@@ -30,6 +30,7 @@ export type InvestmentPlan = {
   durationDays: number;
   finalReturn?: number;
   isPremium?: boolean;
+  isNew?: boolean;
 };
 
 export const INVESTMENT_PLANS: InvestmentPlan[] = [
@@ -69,13 +70,59 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
     finalReturn: 25205,
     isPremium: true,
   },
+
+  {
+    id: "new-1",
+    name: "NEW 1",
+    amount: 100,
+    dailyRate: 5,
+    durationDays: 10,
+    finalReturn: 150,
+    isNew: true,
+  },
+  {
+    id: "new-2",
+    name: "NEW 2",
+    amount: 5000,
+    dailyRate: 4,
+    durationDays: 10,
+    finalReturn: 7000,
+    isNew: true,
+  },
+  {
+    id: "new-3",
+    name: "NEW 3",
+    amount: 900,
+    dailyRate: 5,
+    durationDays: 10,
+    finalReturn: 1350,
+    isNew: true,
+  },
+  {
+    id: "new-4",
+    name: "NEW 4",
+    amount: 20000,
+    dailyRate: 12.5,
+    durationDays: 10,
+    finalReturn: 45000,
+    isNew: true,
+  },
+  {
+    id: "new-5",
+    name: "NEW 5",
+    amount: 300000,
+    dailyRate: 3,
+    durationDays: 10,
+    finalReturn: 390000,
+    isNew: true,
+  },
+
   {
     id: "hybr-1",
     name: "HYBR-1",
     amount: 100,
     dailyRate: 1.9,
     durationDays: 21,
-    isPremium: false,
   },
   {
     id: "hybr-2",
@@ -83,7 +130,6 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
     amount: 350,
     dailyRate: 1.5,
     durationDays: 21,
-    isPremium: false,
   },
   {
     id: "hybr-3",
@@ -91,7 +137,6 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
     amount: 500,
     dailyRate: 2.1,
     durationDays: 30,
-    isPremium: false,
   },
   {
     id: "hybr-4",
@@ -99,7 +144,6 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
     amount: 1000,
     dailyRate: 3.0,
     durationDays: 45,
-    isPremium: false,
   },
   {
     id: "hybr-5",
@@ -107,7 +151,6 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
     amount: 1500,
     dailyRate: 2.7,
     durationDays: 90,
-    isPremium: false,
   },
 ];
 
@@ -495,7 +538,6 @@ export async function approveTransaction(transactionId: string) {
 
       if (remaining > 0) {
         newBonus = Math.max(0, newBonus - remaining);
-        remaining = 0;
       }
 
       tx.update(userRef, {
@@ -573,6 +615,7 @@ export async function buyInvestmentPlan(params: {
     totalProfit: round2(plan.amount * (plan.dailyRate / 100) * plan.durationDays),
     finalReturn: plan.finalReturn ?? null,
     isPremium: !!plan.isPremium,
+    isNew: !!plan.isNew,
     status: "ativo",
     createdAt: serverTimestamp(),
   });
