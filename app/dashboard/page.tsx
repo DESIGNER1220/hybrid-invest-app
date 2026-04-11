@@ -16,16 +16,16 @@ import BottomNav from "../components/BottomNav";
 const FALLBACK_IMAGE = "/plans/hybr-1-new.png";
 
 const PLAN_IMAGES: Record<string, string> = {
-  "premium-1": "/plans/premium-1.png",
-  "premium-2": "/plans/premium-2.png",
-  "premium-3": "/plans/premium-3.png",
-  "premium-4": "/plans/premium-4.png",
-
   "new-1": "/plans/new-1.png",
   "new-2": "/plans/new-2.png",
   "new-3": "/plans/new-3.png",
   "new-4": "/plans/new-4.png",
   "new-5": "/plans/new-5.png",
+
+  "premium-1": "/plans/premium-1.png",
+  "premium-2": "/plans/premium-2.png",
+  "premium-3": "/plans/premium-3.png",
+  "premium-4": "/plans/premium-4.png",
 
   "hybr-1": "/plans/hybr-1-new.png",
   "hybr-2": "/plans/hybr-2-new.png",
