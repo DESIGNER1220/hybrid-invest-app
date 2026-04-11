@@ -32,92 +32,9 @@ export type InvestmentPlan = {
   dailyRate: number;
   durationDays: number;
   finalReturn?: number;
-  isPremium?: boolean;
-  isNew?: boolean;
 };
 
 export const INVESTMENT_PLANS: InvestmentPlan[] = [
-  {
-    id: "premium-1",
-    name: "HYBRD PREMIUM 1",
-    amount: 1000,
-    dailyRate: 14.7,
-    durationDays: 15,
-    finalReturn: 3205,
-    isPremium: true,
-  },
-  {
-    id: "premium-2",
-    name: "HYBRD PREMIUM 2",
-    amount: 100,
-    dailyRate: 13.6666667,
-    durationDays: 15,
-    finalReturn: 305,
-    isPremium: true,
-  },
-  {
-    id: "premium-3",
-    name: "HYBRD PREMIUM 3",
-    amount: 500,
-    dailyRate: 14.7333333,
-    durationDays: 15,
-    finalReturn: 1605,
-    isPremium: true,
-  },
-  {
-    id: "premium-4",
-    name: "HYBRD PREMIUM 4",
-    amount: 10000,
-    dailyRate: 10.1366667,
-    durationDays: 15,
-    finalReturn: 25205,
-    isPremium: true,
-  },
-  {
-    id: "new-1",
-    name: "NEW 1",
-    amount: 100,
-    dailyRate: 5,
-    durationDays: 10,
-    finalReturn: 150,
-    isNew: true,
-  },
-  {
-    id: "new-2",
-    name: "NEW 2",
-    amount: 5000,
-    dailyRate: 4,
-    durationDays: 10,
-    finalReturn: 7000,
-    isNew: true,
-  },
-  {
-    id: "new-3",
-    name: "NEW 3",
-    amount: 900,
-    dailyRate: 5,
-    durationDays: 10,
-    finalReturn: 1350,
-    isNew: true,
-  },
-  {
-    id: "new-4",
-    name: "NEW 4",
-    amount: 20000,
-    dailyRate: 12.5,
-    durationDays: 10,
-    finalReturn: 45000,
-    isNew: true,
-  },
-  {
-    id: "new-5",
-    name: "NEW 5",
-    amount: 300000,
-    dailyRate: 3,
-    durationDays: 10,
-    finalReturn: 390000,
-    isNew: true,
-  },
   {
     id: "hybr-1",
     name: "HYBR-1",
@@ -192,7 +109,10 @@ function calculateAccruedProfitForInvestment(investment: any) {
   const dailyRate = Number(investment.dailyRate ?? 0);
   const durationDays = Number(investment.durationDays ?? 0);
 
-  const fullDays = Math.min(durationDays, getElapsedFullDays(investment.createdAt));
+  const fullDays = Math.min(
+    durationDays,
+    getElapsedFullDays(investment.createdAt)
+  );
 
   return round2(amount * (dailyRate / 100) * fullDays);
 }
@@ -340,7 +260,11 @@ export async function registerUser(params: {
     throw new Error("Este número de telefone já está registado.");
   }
 
-  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+  const userCredential = await createUserWithEmailAndPassword(
+    auth,
+    email,
+    password
+  );
   const user = userCredential.user;
   const referralCode = await generateUniqueReferralCode(phone);
   const role = phoneNormalized === ADMIN_PHONE ? "admin" : "user";
@@ -687,10 +611,10 @@ export async function buyInvestmentPlan(params: {
     amount: plan.amount,
     dailyRate: plan.dailyRate,
     durationDays: plan.durationDays,
-    totalProfit: round2(plan.amount * (plan.dailyRate / 100) * plan.durationDays),
+    totalProfit: round2(
+      plan.amount * (plan.dailyRate / 100) * plan.durationDays
+    ),
     finalReturn: plan.finalReturn ?? null,
-    isPremium: !!plan.isPremium,
-    isNew: !!plan.isNew,
     status: "ativo",
     createdAt: serverTimestamp(),
   });
@@ -707,7 +631,10 @@ export async function getUserInvestments(uid: string) {
   const data = snapshot.docs.map((item) => {
     const investment: any = item.data();
     const elapsedDays = getElapsedFullDays(investment.createdAt);
-    const cappedDays = Math.min(Number(investment.durationDays ?? 0), elapsedDays);
+    const cappedDays = Math.min(
+      Number(investment.durationDays ?? 0),
+      elapsedDays
+    );
     const remainingDays = Math.max(
       0,
       Number(investment.durationDays ?? 0) - cappedDays
@@ -893,7 +820,10 @@ export async function spinWheel(uid: string) {
       throw new Error("Limite diário atingido");
     }
 
-    if (lastSpinAt?.toMillis && Date.now() - lastSpinAt.toMillis() < SPIN_COOLDOWN_MS) {
+    if (
+      lastSpinAt?.toMillis &&
+      Date.now() - lastSpinAt.toMillis() < SPIN_COOLDOWN_MS
+    ) {
       throw new Error("Aguarde alguns segundos para girar novamente");
     }
 
