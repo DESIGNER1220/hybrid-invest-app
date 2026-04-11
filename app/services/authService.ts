@@ -11,12 +11,15 @@ import {
   getDoc,
   getDocs,
   increment,
+  limit,
+  orderBy,
   query,
   runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
   where,
+  Timestamp,
 } from "firebase/firestore";
 
 export type TransactionType = "deposito" | "levantamento";
@@ -70,7 +73,6 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
     finalReturn: 25205,
     isPremium: true,
   },
-
   {
     id: "new-1",
     name: "NEW 1",
@@ -116,7 +118,6 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
     finalReturn: 390000,
     isNew: true,
   },
-
   {
     id: "hybr-1",
     name: "HYBR-1",
@@ -155,6 +156,18 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
 ];
 
 const ADMIN_PHONE = "869933273";
+const DAILY_SPIN_HARD_LIMIT = 20;
+const SPIN_COOLDOWN_MS = 10_000;
+
+export type WheelSpinHistoryItem = {
+  id: string;
+  uid: string;
+  reward: number;
+  label: string;
+  createdAt?: {
+    seconds?: number;
+  };
+};
 
 function normalizePhone(phone: string) {
   return phone.replace(/\D/g, "");
@@ -210,6 +223,66 @@ async function generateUniqueReferralCode(phone: string) {
 
 function normalizeBonusCode(code: string) {
   return code.trim().toUpperCase();
+}
+
+function getTodayKey() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = `${now.getMonth() + 1}`.padStart(2, "0");
+  const d = `${now.getDate()}`.padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function chooseWeightedReward(options: Array<{ reward: number; weight: number }>) {
+  const total = options.reduce((sum, item) => sum + item.weight, 0);
+  let random = Math.random() * total;
+
+  for (const item of options) {
+    random -= item.weight;
+    if (random <= 0) return item.reward;
+  }
+
+  return options[options.length - 1].reward;
+}
+
+function getRewardLabel(reward: number) {
+  if (reward <= 0) return "BOA SORTE";
+  return `${reward} MZN`;
+}
+
+async function getTotalInvested(uid: string) {
+  const q = query(collection(db, "investments"), where("uid", "==", uid));
+  const snapshot = await getDocs(q);
+
+  let totalInvested = 0;
+  snapshot.forEach((item) => {
+    totalInvested += Number(item.data().amount ?? 0);
+  });
+
+  return totalInvested;
+}
+
+function getWheelRewardByInvestment(totalInvested: number) {
+  if (totalInvested < 100) {
+    return 0;
+  }
+
+  if (totalInvested >= 50000) {
+    return chooseWeightedReward([
+      { reward: 0, weight: 50 },
+      { reward: 5, weight: 12 },
+      { reward: 10, weight: 12 },
+      { reward: 50, weight: 12 },
+      { reward: 500, weight: 10 },
+      { reward: 1000, weight: 4 },
+    ]);
+  }
+
+  return chooseWeightedReward([
+    { reward: 0, weight: 65 },
+    { reward: 5, weight: 20 },
+    { reward: 10, weight: 15 },
+  ]);
 }
 
 export async function generateRandomBonusCode() {
@@ -284,6 +357,9 @@ export async function registerUser(params: {
     totalProfit: 0,
     referrals: 0,
     role,
+    spinsUsedToday: 0,
+    lastSpinDate: "",
+    lastSpinAt: null,
     createdAt: serverTimestamp(),
   });
 
@@ -300,7 +376,6 @@ export async function registerUser(params: {
 
       await updateDoc(referrerDoc.ref, {
         referrals: increment(1),
-        bonus: increment(10),
       });
     }
   }
@@ -783,4 +858,86 @@ export async function redeemBonusCode(uid: string, code: string) {
       usedAt: serverTimestamp(),
     });
   });
+}
+
+export async function spinWheel(uid: string) {
+  const userRef = doc(db, "users", uid);
+  const todayKey = getTodayKey();
+  const totalInvested = await getTotalInvested(uid);
+
+  const reward = getWheelRewardByInvestment(totalInvested);
+  const rewardLabel = getRewardLabel(reward);
+
+  await runTransaction(db, async (tx) => {
+    const userSnap = await tx.get(userRef);
+
+    if (!userSnap.exists()) {
+      throw new Error("Usuário não encontrado");
+    }
+
+    const userData: any = userSnap.data();
+    const referrals = Number(userData.referrals ?? 0);
+
+    if (referrals < 1) {
+      throw new Error("Convide pelo menos 1 amigo");
+    }
+
+    const lastSpinDate = userData.lastSpinDate ?? "";
+    const lastSpinAt = userData.lastSpinAt as Timestamp | null;
+    const previousSpinsUsedToday =
+      lastSpinDate === todayKey ? Number(userData.spinsUsedToday ?? 0) : 0;
+
+    const availableSpins = Math.min(referrals, DAILY_SPIN_HARD_LIMIT);
+
+    if (previousSpinsUsedToday >= availableSpins) {
+      throw new Error("Limite diário atingido");
+    }
+
+    if (lastSpinAt?.toMillis && Date.now() - lastSpinAt.toMillis() < SPIN_COOLDOWN_MS) {
+      throw new Error("Aguarde alguns segundos para girar novamente");
+    }
+
+    const nextUpdate: Record<string, any> = {
+      lastSpinDate: todayKey,
+      lastSpinAt: serverTimestamp(),
+      spinsUsedToday: previousSpinsUsedToday + 1,
+    };
+
+    if (reward > 0) {
+      nextUpdate.bonus = increment(reward);
+    }
+
+    tx.update(userRef, nextUpdate);
+  });
+
+  await addDoc(collection(db, "wheelSpins"), {
+    uid,
+    reward,
+    label: rewardLabel,
+    investedAmount: totalInvested,
+    createdAt: serverTimestamp(),
+  });
+
+  return {
+    reward,
+    label: rewardLabel,
+  };
+}
+
+export async function getWheelSpinHistory(uid: string) {
+  const q = query(
+    collection(db, "wheelSpins"),
+    where("uid", "==", uid),
+    orderBy("createdAt", "desc"),
+    limit(20)
+  );
+
+  const snapshot = await getDocs(q);
+
+  const data = snapshot.docs.map((item) => ({
+    id: item.id,
+    ...item.data(),
+  })) as WheelSpinHistoryItem[];
+
+  return data;
 }
