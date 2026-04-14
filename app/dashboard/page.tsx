@@ -1,335 +1,176 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../lib/firebase";
-import {
-  buyInvestmentPlan,
-  getUserProfile,
-  getUserTransactions,
-  INVESTMENT_PLANS,
-} from "../services/authService";
+import { getUserProfile } from "../services/authService";
 import BottomNav from "../components/BottomNav";
-
-const FALLBACK_IMAGE = "/plans/hybr-1-new.png";
-
-const PLAN_IMAGES: Record<string, string> = {
-  "premium-1": "/plans/premium-1.png",
-  "premium-2": "/plans/premium-2.png",
-  "premium-3": "/plans/premium-3.png",
-  "premium-4": "/plans/premium-4.png",
-  "hybr-1": "/plans/hybr-1-new.png",
-  "hybr-2": "/plans/hybr-2-new.png",
-  "hybr-3": "/plans/hybr-3-new.png",
-  "hybr-4": "/plans/hybr-4-new.png",
-  "hybr-5": "/plans/hybr-5-new.png",
-};
-
-type TransactionItem = {
-  id: string;
-  type: "deposito" | "levantamento";
-  amount: number;
-  status: string;
-  createdAt?: { seconds?: number };
-};
 
 type UserProfile = {
   balance?: number;
   totalProfit?: number;
   bonus?: number;
-  role?: string;
 };
+
+function formatMoney(value: number) {
+  return Number(value || 0).toLocaleString("pt-MZ");
+}
 
 export default function DashboardPage() {
   const router = useRouter();
+
   const [userData, setUserData] = useState<UserProfile | null>(null);
-  const [transactions, setTransactions] = useState<TransactionItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [buyingPlanId, setBuyingPlanId] = useState<string | null>(null);
 
-  async function loadDashboardData(uid: string) {
-    const [profile, userTransactions] = await Promise.all([
-      getUserProfile(uid),
-      getUserTransactions(uid),
-    ]);
-
-    setUserData((profile as UserProfile) || null);
-    setTransactions((userTransactions as TransactionItem[]) || []);
+  async function load(uid: string) {
+    const profile = await getUserProfile(uid);
+    setUserData(profile as UserProfile);
   }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         router.push("/login");
         return;
       }
 
       try {
-        await loadDashboardData(user.uid);
-      } catch (error) {
-        console.error("Erro ao carregar dashboard:", error);
-        alert("Erro ao carregar dados da conta.");
+        await load(user.uid);
       } finally {
         setLoading(false);
       }
     });
 
-    return () => unsubscribe();
+    return () => unsub();
   }, [router]);
 
   const balance = Number(userData?.balance ?? 0);
   const totalProfit = Number(userData?.totalProfit ?? 0);
   const bonus = Number(userData?.bonus ?? 0);
-  const isAdmin = userData?.role === "admin";
 
-  const totalDeposits = useMemo(() => {
-    return transactions
-      .filter((item) => item.type === "deposito" && item.status === "aprovado")
-      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  }, [transactions]);
-
-  const totalWithdrawals = useMemo(() => {
-    return transactions
-      .filter((item) => item.type === "levantamento" && item.status === "aprovado")
-      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  }, [transactions]);
-
-  const visibleBalance = useMemo(() => {
-    return balance + totalProfit + bonus;
-  }, [balance, totalProfit, bonus]);
-
-  async function handleRentPlan(planId: string) {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      router.push("/login");
-      return;
-    }
-
-    const plan = INVESTMENT_PLANS.find((item) => item.id === planId);
-    if (!plan) {
-      alert("Plano não encontrado.");
-      return;
-    }
-
-    if (balance < plan.amount) {
-      alert("Saldo insuficiente");
-      router.push("/deposito");
-      return;
-    }
-
-    try {
-      setBuyingPlanId(planId);
-      await buyInvestmentPlan({
-        uid: currentUser.uid,
-        planId,
-      });
-
-      await loadDashboardData(currentUser.uid);
-      alert("Alugado com sucesso.");
-    } catch (error: any) {
-      alert(error?.message || "Erro ao processar o aluguer.");
-    } finally {
-      setBuyingPlanId(null);
-    }
-  }
-
-  const premiumPlans = INVESTMENT_PLANS.filter((plan) => plan.isPremium);
-  const normalPlans = INVESTMENT_PLANS.filter((plan) => !plan.isPremium);
+  const total = balance + totalProfit + bonus;
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 p-6 text-white">
-        <p>Carregando...</p>
-      </main>
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black p-6 text-white">
+        Carregando...
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-3 pb-24 pt-3 text-white">
-      <div className="mx-auto max-w-md">
-        {isAdmin && (
-          <div className="mb-3">
-            <button
-              onClick={() => router.push("/admin")}
-              className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500"
-            >
-              Abrir painel do administrador
-            </button>
-          </div>
-        )}
+    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black px-4 pt-4 pb-28 text-white">
+      <div className="mx-auto max-w-md space-y-5">
+        {/* BOTÕES */}
+        <div className="flex justify-center gap-4">
+          <button
+            onClick={() => router.push("/deposito")}
+            className="w-36 rounded-2xl bg-emerald-500 py-3 text-sm font-bold text-black shadow-lg transition hover:bg-emerald-400"
+          >
+            Depositar
+          </button>
 
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-lg">
-            <p className="text-xs text-slate-400">Saldo</p>
-            <h3 className="mt-1 text-lg font-bold text-white">
-              {visibleBalance.toLocaleString("pt-MZ")} MZN
-            </h3>
-          </div>
+          <button
+            onClick={() => router.push("/levantamento")}
+            className="w-36 rounded-2xl bg-amber-500 py-3 text-sm font-bold text-black shadow-lg transition hover:bg-amber-400"
+          >
+            Levantar
+          </button>
+        </div>
 
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-lg">
-            <p className="text-xs text-slate-400">Lucro</p>
-            <h3 className="mt-1 text-lg font-bold text-cyan-400">
-              {totalProfit.toLocaleString("pt-MZ")} MZN
-            </h3>
-          </div>
-
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-lg">
-            <p className="text-xs text-slate-400">Depósitos</p>
+        {/* SALDO + LUCRO */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-center shadow-lg">
+            <p className="text-[11px] uppercase tracking-wide text-slate-300">
+              Saldo total
+            </p>
             <h3 className="mt-1 text-lg font-bold text-emerald-400">
-              {totalDeposits.toLocaleString("pt-MZ")} MZN
+              {formatMoney(total)} MZN
             </h3>
-            <button
-              onClick={() => router.push("/deposito")}
-              className="mt-2 w-full rounded-lg bg-emerald-500 px-3 py-2 text-xs font-semibold text-black transition hover:bg-emerald-400"
-            >
-              Depositar
-            </button>
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-lg">
-            <p className="text-xs text-slate-400">Levantamentos</p>
-            <h3 className="mt-1 text-lg font-bold text-amber-400">
-              {totalWithdrawals.toLocaleString("pt-MZ")} MZN
+          <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-4 text-center shadow-lg">
+            <p className="text-[11px] uppercase tracking-wide text-slate-300">
+              Lucro
+            </p>
+            <h3 className="mt-1 text-lg font-bold text-cyan-400">
+              {formatMoney(totalProfit)} MZN
             </h3>
-            <button
-              onClick={() => router.push("/levantamento")}
-              className="mt-2 w-full rounded-lg bg-amber-500 px-3 py-2 text-xs font-semibold text-black transition hover:bg-amber-400"
-            >
-              Levantar
-            </button>
           </div>
         </div>
 
-        <div className="mt-2 rounded-xl border border-white/10 bg-white/5 p-3">
-          <p className="text-xs text-slate-400">Bónus acumulado</p>
-          <h3 className="mt-1 text-base font-bold text-blue-400">
-            {bonus.toLocaleString("pt-MZ")} MZN
-          </h3>
+        {/* BÓNUS */}
+        <div className="flex justify-center">
+          <div className="w-36 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-3 text-center shadow-lg">
+            <p className="text-[11px] uppercase tracking-wide text-slate-300">
+              Bónus
+            </p>
+            <h3 className="mt-1 text-base font-bold text-blue-400">
+              {formatMoney(bonus)} MZN
+            </h3>
+          </div>
         </div>
 
-        {premiumPlans.length > 0 && (
-          <div className="mt-4">
-            <h2 className="mb-2 text-sm font-bold text-blue-400">
-              Investimentos Premium
-            </h2>
-
-            <div className="space-y-4">
-              {premiumPlans.map((plan) => {
-                const imageSrc = PLAN_IMAGES[plan.id] || FALLBACK_IMAGE;
-
-                return (
-                  <div
-                    key={plan.id}
-                    className="rounded-xl border border-blue-500/20 bg-white/5 p-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="relative h-20 w-20 overflow-hidden rounded-lg">
-                        <Image
-                          src={imageSrc}
-                          alt={plan.name}
-                          fill
-                          sizes="80px"
-                          className="object-cover"
-                        />
-                      </div>
-
-                      <div className="flex-1 text-xs text-slate-300">
-                        <h3 className="text-sm font-bold text-blue-400">{plan.name}</h3>
-                        <p>
-                          Valor:{" "}
-                          <span className="font-semibold text-white">
-                            {plan.amount.toLocaleString("pt-MZ")} MZN
-                          </span>
-                        </p>
-                        <p>
-                          Duração:{" "}
-                          <span className="font-semibold text-white">
-                            {plan.durationDays} dias
-                          </span>
-                        </p>
-                        <p>
-                          Retorno:{" "}
-                          <span className="font-semibold text-emerald-400">
-                            {Number(plan.finalReturn ?? 0).toLocaleString("pt-MZ")} MZN
-                          </span>
-                        </p>
-
-                        <button
-                          onClick={() => handleRentPlan(plan.id)}
-                          disabled={buyingPlanId === plan.id}
-                          className="mt-2 w-full rounded bg-blue-600 py-2 font-bold text-white transition hover:bg-blue-500 disabled:opacity-70"
-                        >
-                          {buyingPlanId === plan.id ? "Processando..." : "Alugar"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+        {/* IMAGENS */}
+        <div className="space-y-3">
+          <div className="relative h-40 w-full overflow-hidden rounded-2xl border border-white/10 shadow-lg">
+            <Image
+              src="/dashboard/server.jpg"
+              alt="Infraestrutura"
+              fill
+              className="object-cover"
+            />
+            <div className="absolute inset-0 bg-black/25" />
+            <div className="absolute bottom-3 left-3 right-3">
+              <p className="text-sm font-bold text-white">
+                Infraestrutura tecnológica moderna
+              </p>
             </div>
           </div>
-        )}
 
-        <div className="mt-4">
-          <h2 className="mb-2 text-sm font-bold text-amber-400">
-            Investimentos HYBR
-          </h2>
+          <div className="relative h-40 w-full overflow-hidden rounded-2xl border border-white/10 shadow-lg">
+            <Image
+              src="/dashboard/server.jpg"
+              alt="Investimento"
+              fill
+              className="object-cover"
+            />
+            <div className="absolute inset-0 bg-black/25" />
+            <div className="absolute bottom-3 left-3 right-3">
+              <p className="text-sm font-bold text-white">
+                Crescimento financeiro com visão de futuro
+              </p>
+            </div>
+          </div>
+        </div>
 
-          <div className="space-y-4">
-            {normalPlans.map((plan) => {
-              const imageSrc = PLAN_IMAGES[plan.id] || FALLBACK_IMAGE;
+        {/* TEXTO EMPRESA PREMIUM */}
+        <div className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-slate-900 p-5 text-center shadow-lg">
+          <div className="mb-3 flex items-center justify-center gap-2">
+            <span className="text-xl">🏢</span>
+            <h2 className="text-lg font-bold text-amber-400">Sobre a HYBR</h2>
+          </div>
 
-              return (
-                <div
-                  key={plan.id}
-                  className="rounded-xl border border-white/10 bg-white/5 p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="relative h-20 w-20 overflow-hidden rounded-lg">
-                      <Image
-                        src={imageSrc}
-                        alt={plan.name}
-                        fill
-                        sizes="80px"
-                        className="object-cover"
-                      />
-                    </div>
+          <p className="text-sm leading-relaxed text-slate-200">
+            O{" "}
+            <span className="font-bold text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.45)]">
+              HYBR
+            </span>{" "}
+            é um sistema de rendimento financeiro projectado para ajudar muitos
+            Moçambicanos desde{" "}
+            <span className="font-bold text-white">1 de Abril de 2026</span>,
+            criando evolução financeira e novas oportunidades para o futuro.
+          </p>
 
-                    <div className="flex-1 text-xs text-slate-300">
-                      <h3 className="text-sm font-bold text-amber-400">{plan.name}</h3>
-                      <p>
-                        Valor:{" "}
-                        <span className="font-semibold text-white">
-                          {plan.amount.toLocaleString("pt-MZ")} MZN
-                        </span>
-                      </p>
-                      <p>
-                        Lucro diário:{" "}
-                        <span className="font-semibold text-emerald-400">
-                          {plan.dailyRate}%
-                        </span>
-                      </p>
-                      <p>
-                        Duração:{" "}
-                        <span className="font-semibold text-white">
-                          {plan.durationDays} dias
-                        </span>
-                      </p>
-
-                      <button
-                        onClick={() => handleRentPlan(plan.id)}
-                        disabled={buyingPlanId === plan.id}
-                        className="mt-2 w-full rounded bg-amber-500 py-2 font-bold text-black transition hover:bg-amber-400 disabled:opacity-70"
-                      >
-                        {buyingPlanId === plan.id ? "Processando..." : "Alugar"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
+            <p className="text-sm text-slate-300">
+              <span className="mr-1">📍</span>
+              Estamos localizados em{" "}
+              <span className="font-bold text-white">Nampula</span>, onde se
+              encontra a nossa sede.
+            </p>
           </div>
         </div>
       </div>
