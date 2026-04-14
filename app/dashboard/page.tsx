@@ -12,6 +12,7 @@ type UserProfile = {
   balance?: number;
   totalProfit?: number;
   bonus?: number;
+  role?: string;
 };
 
 function formatMoney(value: number) {
@@ -49,6 +50,7 @@ export default function DashboardPage() {
   const balance = Number(userData?.balance ?? 0);
   const totalProfit = Number(userData?.totalProfit ?? 0);
   const bonus = Number(userData?.bonus ?? 0);
+  const isAdmin = userData?.role === "admin";
 
   const total = balance + totalProfit + bonus;
 
@@ -79,6 +81,18 @@ export default function DashboardPage() {
             Levantar
           </button>
         </div>
+
+        {/* BOTÃO ADMIN */}
+        {isAdmin && (
+          <div className="flex justify-center">
+            <button
+              onClick={() => router.push("/admin")}
+              className="rounded-xl bg-red-500 px-4 py-2 text-xs font-bold text-white shadow-lg transition hover:bg-red-400"
+            >
+              Painel do Administrador
+            </button>
+          </div>
+        )}
 
         {/* SALDO + LUCRO */}
         <div className="grid grid-cols-2 gap-3">
@@ -146,7 +160,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* TEXTO EMPRESA PREMIUM */}
+        {/* TEXTO EMPRESA */}
         <div className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-slate-900 p-5 text-center shadow-lg">
           <div className="mb-3 flex items-center justify-center gap-2">
             <span className="text-xl">🏢</span>
