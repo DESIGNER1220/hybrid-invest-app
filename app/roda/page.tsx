@@ -37,7 +37,7 @@ function formatDateTime(timestamp?: { seconds?: number }) {
 export default function RodaPage() {
   const router = useRouter();
   const audioContextRef = useRef<AudioContext | null>(null);
-  const tickIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tickTimeoutsRef = useRef<number[]>([]);
 
   const [uid, setUid] = useState("");
   const [loading, setLoading] = useState(true);
@@ -50,7 +50,6 @@ export default function RodaPage() {
   const [history, setHistory] = useState<WheelSpinHistoryItem[]>([]);
   const [activeSlice, setActiveSlice] = useState<number | null>(null);
 
-  const wheelSize = 288;
   const sliceAngle = 360 / wheelItems.length;
 
   async function loadAll(userId: string) {
@@ -96,9 +95,14 @@ export default function RodaPage() {
 
   useEffect(() => {
     return () => {
-      stopTicking();
+      clearTicking();
     };
   }, []);
+
+  function clearTicking() {
+    tickTimeoutsRef.current.forEach((id) => window.clearTimeout(id));
+    tickTimeoutsRef.current = [];
+  }
 
   function getAudioContext() {
     try {
@@ -125,7 +129,12 @@ export default function RodaPage() {
     }
   }
 
-  function beep(frequency: number, duration = 120, type: OscillatorType = "sine", volume = 0.03) {
+  function beep(
+    frequency: number,
+    duration = 120,
+    type: OscillatorType = "sine",
+    volume = 0.03
+  ) {
     try {
       const ctx = getAudioContext();
       if (!ctx) return;
@@ -148,58 +157,42 @@ export default function RodaPage() {
   }
 
   function playTickSound() {
-    beep(1800, 18, "square", 0.025);
+    beep(1850, 16, "square", 0.022);
   }
 
   function startTicking() {
-    stopTicking();
+    clearTicking();
 
-    let count = 0;
-    tickIntervalRef.current = setInterval(() => {
-      playTickSound();
-      setActiveSlice((prev) => {
-        if (prev === null) return 0;
-        return (prev + 1) % wheelItems.length;
-      });
+    let index = 0;
+    const delays = [
+      0, 90, 180, 270, 360, 450, 540, 630, 720, 810,
+      900, 990, 1080, 1170, 1260, 1350, 1440, 1530, 1620, 1710,
+      1810, 1920, 2040, 2180, 2340, 2520, 2730, 2970, 3240, 3550
+    ];
 
-      count += 1;
+    delays.forEach((delay) => {
+      const timeoutId = window.setTimeout(() => {
+        playTickSound();
+        setActiveSlice(index % wheelItems.length);
+        index += 1;
+      }, delay);
 
-      // desaceleração leve visual do destaque
-      if (count > 28 && tickIntervalRef.current) {
-        clearInterval(tickIntervalRef.current);
-        let slowIndex = activeSlice ?? 0;
-
-        const slowPattern = [160, 190, 220, 260, 310, 380];
-        slowPattern.forEach((delay) => {
-          setTimeout(() => {
-            playTickSound();
-            slowIndex = (slowIndex + 1) % wheelItems.length;
-            setActiveSlice(slowIndex);
-          }, delay);
-        });
-      }
-    }, 90);
-  }
-
-  function stopTicking() {
-    if (tickIntervalRef.current) {
-      clearInterval(tickIntervalRef.current);
-      tickIntervalRef.current = null;
-    }
+      tickTimeoutsRef.current.push(timeoutId);
+    });
   }
 
   function playSpinSound() {
     startTicking();
     beep(420, 50);
-    setTimeout(() => beep(520, 50), 100);
-    setTimeout(() => beep(620, 70), 220);
+    window.setTimeout(() => beep(520, 50), 100);
+    window.setTimeout(() => beep(620, 70), 220);
   }
 
   function playResultSound(reward: number) {
     if (reward > 0) {
       beep(700, 150);
-      setTimeout(() => beep(900, 200), 180);
-      setTimeout(() => beep(1100, 220), 380);
+      window.setTimeout(() => beep(900, 200), 180);
+      window.setTimeout(() => beep(1100, 220), 380);
       vibrateWin(true);
     } else {
       beep(320, 120, "sawtooth", 0.03);
@@ -210,9 +203,7 @@ export default function RodaPage() {
   function getTargetAngleByReward(reward: number) {
     const rewardIndex = wheelItems.findIndex((item) => item.value === reward);
     const centerAngle = rewardIndex * sliceAngle + sliceAngle / 2;
-    const correction = 360 - centerAngle;
-
-    return correction;
+    return 360 - centerAngle;
   }
 
   async function handleSpin() {
@@ -232,21 +223,21 @@ export default function RodaPage() {
       playSpinSound();
       setRotation(finalRotation);
 
-      setTimeout(async () => {
-        stopTicking();
+      window.setTimeout(async () => {
+        clearTicking();
 
         const winnerIndex = wheelItems.findIndex(
           (item) => item.value === spinData.reward
         );
-        setActiveSlice(winnerIndex >= 0 ? winnerIndex : null);
 
+        setActiveSlice(winnerIndex >= 0 ? winnerIndex : null);
         setResult(spinData.label);
         playResultSound(spinData.reward);
         await loadAll(uid);
         setSpinning(false);
       }, 4200);
     } catch (error: any) {
-      stopTicking();
+      clearTicking();
       setFooterMessage(error?.message || "Erro ao girar");
       setSpinning(false);
     }
@@ -262,10 +253,14 @@ export default function RodaPage() {
     }
 
     if (investedAmount >= 50000) {
-      return "Investimento alto: pode ganhar até 500 MZN";
+      return "Investimento alto: pode ganhar até 1000 MZN";
     }
 
-    return "Investimento de 100 MZN ou mais: pode ganhar até 10 MZN";
+    if (investedAmount >= 1000) {
+      return "Investimento médio: pode ganhar até 500 MZN";
+    }
+
+    return "Investimento de 100 MZN ou mais: pode ganhar até 50 MZN";
   }, [referrals, investedAmount]);
 
   const canSpin = referrals >= 1;
@@ -318,7 +313,6 @@ export default function RodaPage() {
         </div>
 
         <div className="relative mx-auto flex h-80 w-80 items-center justify-center">
-          {/* glow exterior animado */}
           <div
             className={`absolute inset-0 rounded-full blur-2xl transition-all duration-500 ${
               spinning ? "scale-105 opacity-100" : "opacity-60"
@@ -329,17 +323,14 @@ export default function RodaPage() {
             }}
           />
 
-          {/* ponteiro */}
           <div className="absolute top-0 z-30 h-0 w-0 border-l-[14px] border-r-[14px] border-b-[24px] border-l-transparent border-r-transparent border-b-amber-400 drop-shadow-[0_0_10px_rgba(245,158,11,0.7)]" />
 
-          {/* anel pulsante */}
           <div
             className={`absolute h-72 w-72 rounded-full border border-amber-300/30 ${
               spinning ? "animate-ping" : ""
             }`}
           />
 
-          {/* roda */}
           <div
             className="relative z-20 h-72 w-72 rounded-full border-8 border-amber-500"
             style={{
@@ -353,7 +344,6 @@ export default function RodaPage() {
                 : "0 0 24px rgba(245,158,11,0.28), inset 0 0 20px rgba(255,255,255,0.04)",
             }}
           >
-            {/* divisões */}
             {wheelItems.map((_, index) => (
               <div
                 key={`divider-${index}`}
@@ -365,7 +355,6 @@ export default function RodaPage() {
               />
             ))}
 
-            {/* destaque por segmento */}
             {wheelItems.map((item, index) => {
               const angle = index * sliceAngle + sliceAngle / 2;
               const isActive = activeSlice === index;
@@ -399,7 +388,6 @@ export default function RodaPage() {
               );
             })}
 
-            {/* brilho interno */}
             <div
               className="absolute inset-0 rounded-full"
               style={{
@@ -408,7 +396,6 @@ export default function RodaPage() {
               }}
             />
 
-            {/* centro */}
             <div className="absolute left-1/2 top-1/2 z-20 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4 border-white/20 bg-slate-950 shadow-lg">
               <div className="h-5 w-5 rounded-full bg-slate-800" />
             </div>

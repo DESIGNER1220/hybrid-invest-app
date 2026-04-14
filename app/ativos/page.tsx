@@ -1,44 +1,37 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
+import { useRouter } from "next/navigation";
 import { auth } from "../lib/firebase";
-import { getUserInvestments } from "../services/authService";
+import {
+  INVESTMENT_PLANS,
+  buyInvestmentPlan,
+  getUserProfile,
+} from "../services/authService";
 import BottomNav from "../components/BottomNav";
 
-type InvestmentItem = {
-  id: string;
-  planName: string;
-  amount: number;
-  dailyRate: number;
-  durationDays: number;
-  totalProfit: number;
-  status: string;
-  createdAt?: { seconds?: number };
-  elapsedDays?: number;
-  remainingDays?: number;
-  accruedProfit?: number;
+type UserProfile = {
+  balance?: number;
 };
 
-function formatDate(timestamp?: { seconds?: number }) {
-  if (!timestamp?.seconds) return "Data indisponível";
-
-  return new Date(timestamp.seconds * 1000).toLocaleDateString("pt-MZ", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+function formatMoney(value: number) {
+  return Number(value || 0).toLocaleString("pt-MZ");
 }
 
 export default function AtivosPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [investments, setInvestments] = useState<InvestmentItem[]>([]);
 
-  async function loadInvestments(uid: string) {
-    const data = await getUserInvestments(uid);
-    setInvestments((data as InvestmentItem[]) || []);
+  const [uid, setUid] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [buyingId, setBuyingId] = useState("");
+  const [footerMessage, setFooterMessage] = useState("");
+  const [footerType, setFooterType] = useState<"success" | "error" | "">("");
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  async function loadProfile(userId: string) {
+    const userProfile = (await getUserProfile(userId)) as UserProfile | null;
+    setProfile(userProfile);
   }
 
   useEffect(() => {
@@ -48,11 +41,14 @@ export default function AtivosPage() {
         return;
       }
 
+      setUid(user.uid);
+
       try {
-        await loadInvestments(user.uid);
+        await loadProfile(user.uid);
       } catch (error) {
         console.error(error);
-        alert("Erro ao carregar ativos.");
+        setFooterType("error");
+        setFooterMessage("Erro ao carregar dados.");
       } finally {
         setLoading(false);
       }
@@ -61,163 +57,234 @@ export default function AtivosPage() {
     return () => unsubscribe();
   }, [router]);
 
-  const activeInvestments = useMemo(
-    () => investments.filter((item) => item.status === "ativo"),
-    [investments]
+  async function handleBuy(planId: string) {
+    if (!uid || buyingId) return;
+
+    try {
+      setFooterMessage("");
+      setFooterType("");
+      setBuyingId(planId);
+
+      const result = await buyInvestmentPlan({ uid, planId });
+      await loadProfile(uid);
+
+      setFooterType("success");
+      setFooterMessage(result?.message || "Alugado com sucesso");
+
+      setTimeout(() => {
+        router.push("/ativos");
+      }, 1200);
+    } catch (error: any) {
+      setFooterType("error");
+      setFooterMessage(error?.message || "Erro ao investir.");
+    } finally {
+      setBuyingId("");
+    }
+  }
+
+  const normalPlans = useMemo(
+    () => INVESTMENT_PLANS.filter((p) => !p.id.startsWith("alto-btc")),
+    []
   );
 
-  const totalInvested = useMemo(
-    () => activeInvestments.reduce((sum, item) => sum + Number(item.amount || 0), 0),
-    [activeInvestments]
-  );
-
-  const totalAccruedProfit = useMemo(
-    () =>
-      activeInvestments.reduce(
-        (sum, item) => sum + Number(item.accruedProfit || 0),
-        0
-      ),
-    [activeInvestments]
+  const altoRendimentoPlans = useMemo(
+    () => INVESTMENT_PLANS.filter((p) => p.id.startsWith("alto-btc")),
+    []
   );
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 p-4 text-white">
-        Carregando ativos...
+      <main className="min-h-screen bg-slate-950 p-4 text-white">
+        Carregando...
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-3 pb-24 pt-3 text-white">
-      <div className="mx-auto max-w-md space-y-3">
-        <h1 className="text-xl font-bold">Ativos</h1>
+    <main className="min-h-screen bg-slate-950 px-4 pt-4 pb-28 text-white">
+      <div className="mx-auto max-w-md space-y-5">
+        <h1 className="text-center text-xl font-bold">Investimentos</h1>
 
-        <div className="grid grid-cols-1 gap-2">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-            <p className="text-xs text-slate-400">Planos ativos</p>
-            <h3 className="mt-1 text-lg font-bold text-white">
-              {activeInvestments.length}
-            </h3>
-          </div>
-
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-            <p className="text-xs text-slate-400">Total investido</p>
-            <h3 className="mt-1 text-lg font-bold text-white">
-              {totalInvested.toLocaleString("pt-MZ")} MZN
-            </h3>
-          </div>
-
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-            <p className="text-xs text-slate-400">Lucro acumulado</p>
-            <h3 className="mt-1 text-lg font-bold text-emerald-400">
-              {totalAccruedProfit.toLocaleString("pt-MZ")} MZN
-            </h3>
-          </div>
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center">
+          <p className="text-xs text-slate-400">Saldo disponível</p>
+          <p className="mt-2 text-2xl font-bold text-emerald-400">
+            {formatMoney(Number(profile?.balance ?? 0))} MZN
+          </p>
         </div>
 
-        {activeInvestments.length === 0 ? (
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center">
-            <p className="text-sm text-slate-300">Ainda não alugaste nenhum plano.</p>
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="mt-3 w-full rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black"
-            >
-              Ir ao dashboard
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {activeInvestments.map((item) => {
-              const elapsedDays = Number(item.elapsedDays ?? 0);
-              const remainingDays = Number(item.remainingDays ?? 0);
-              const accruedProfit = Number(item.accruedProfit ?? 0);
+        <div className="space-y-3">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-slate-300">
+            Planos disponíveis
+          </h2>
 
-              const progressPercent =
-                Number(item.durationDays || 0) > 0
-                  ? Math.min(
-                      100,
-                      Math.round((elapsedDays / Number(item.durationDays)) * 100)
-                    )
-                  : 0;
+          {normalPlans.map((plan) => {
+            const finalReturn =
+              plan.finalReturn ??
+              Math.round(
+                plan.amount + plan.amount * (plan.dailyRate / 100) * plan.durationDays
+              );
 
-              return (
-                <div
-                  key={item.id}
-                  className="rounded-xl border border-white/10 bg-white/5 p-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-base font-bold text-amber-400">{item.planName}</h3>
-                    <span className="rounded-full bg-emerald-500/20 px-2 py-1 text-[10px] text-emerald-400">
-                      Ativo
-                    </span>
+            return (
+              <div
+                key={plan.id}
+                className="rounded-2xl border border-white/10 bg-white/5 p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-white">{plan.name}</p>
+                    {plan.isPremium && (
+                      <span className="mt-1 inline-block rounded-full bg-amber-500/15 px-2 py-1 text-[10px] font-bold text-amber-400">
+                        PREMIUM
+                      </span>
+                    )}
                   </div>
 
-                  <div className="mt-3 space-y-1 text-xs text-slate-300">
-                    <p>
-                      Valor:{" "}
-                      <span className="font-semibold text-white">
-                        {Number(item.amount).toLocaleString("pt-MZ")} MZN
-                      </span>
+                  <div className="text-right">
+                    <p className="text-xs text-slate-400">Entrada</p>
+                    <p className="text-base font-bold text-amber-400">
+                      {formatMoney(plan.amount)} MZN
                     </p>
-                    <p>
-                      Lucro diário:{" "}
-                      <span className="font-semibold text-emerald-400">
-                        {Number(item.dailyRate)}%
-                      </span>
-                    </p>
-                    <p>
-                      Duração:{" "}
-                      <span className="font-semibold text-white">
-                        {Number(item.durationDays)} dias
-                      </span>
-                    </p>
-                    <p>
-                      Início:{" "}
-                      <span className="font-semibold text-white">
-                        {formatDate(item.createdAt)}
-                      </span>
-                    </p>
-                    <p>
-                      Dias pagos:{" "}
-                      <span className="font-semibold text-white">{elapsedDays}</span>
-                    </p>
-                    <p>
-                      Dias restantes:{" "}
-                      <span className="font-semibold text-amber-400">{remainingDays}</span>
-                    </p>
-                    <p>
-                      Lucro acumulado:{" "}
-                      <span className="font-semibold text-emerald-400">
-                        {accruedProfit.toLocaleString("pt-MZ")} MZN
-                      </span>
-                    </p>
-                    <p>
-                      Lucro total possível:{" "}
-                      <span className="font-semibold text-white">
-                        {Number(item.totalProfit).toLocaleString("pt-MZ")} MZN
-                      </span>
-                    </p>
-                  </div>
-
-                  <div className="mt-3">
-                    <div className="mb-1 flex items-center justify-between text-[10px] text-slate-400">
-                      <span>Progresso</span>
-                      <span>{progressPercent}%</span>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
-                      <div
-                        className="h-full rounded-full bg-amber-500"
-                        style={{ width: `${progressPercent}%` }}
-                      />
-                    </div>
                   </div>
                 </div>
-              );
-            })}
+
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  <div className="rounded-xl bg-slate-950/40 p-3">
+                    <p className="text-[11px] text-slate-400">Lucro diário</p>
+                    <p className="mt-1 text-sm font-bold text-emerald-400">
+                      {plan.dailyRate}%
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-slate-950/40 p-3">
+                    <p className="text-[11px] text-slate-400">Duração</p>
+                    <p className="mt-1 text-sm font-bold text-white">
+                      {plan.durationDays} dias
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-slate-950/40 p-3">
+                    <p className="text-[11px] text-slate-400">Retorno total</p>
+                    <p className="mt-1 text-sm font-bold text-blue-400">
+                      {formatMoney(finalReturn)} MZN
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleBuy(plan.id)}
+                  disabled={buyingId === plan.id}
+                  className="mt-4 w-full rounded-xl bg-amber-500 py-3 text-sm font-bold text-black transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {buyingId === plan.id ? "Processando..." : "Investir agora"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-bold text-amber-400">
+              🔥 Alto Rendimento
+            </h2>
+            <span className="rounded-full bg-amber-500/10 px-3 py-1 text-[11px] font-bold text-amber-300">
+              Máquinas Bitcoin
+            </span>
           </div>
-        )}
+
+          <p className="text-xs text-slate-400">
+            Arraste para a direita e esquerda para ver todos os planos.
+          </p>
+
+          <div className="-mx-1 overflow-x-auto pb-2">
+            <div className="flex gap-4 px-1">
+              {altoRendimentoPlans.map((plan) => {
+                const finalReturn =
+                  plan.finalReturn ??
+                  Math.round(
+                    plan.amount + plan.amount * (plan.dailyRate / 100) * plan.durationDays
+                  );
+
+                return (
+                  <div
+                    key={plan.id}
+                    className="min-w-[285px] flex-shrink-0 rounded-3xl border border-amber-500/30 bg-gradient-to-br from-amber-500/15 via-slate-900 to-black p-4 shadow-[0_0_24px_rgba(245,158,11,0.18)]"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-amber-300">
+                          {plan.name}
+                        </p>
+                        <span className="mt-2 inline-block rounded-full bg-amber-400/15 px-2 py-1 text-[10px] font-bold text-amber-300">
+                          ALTO RENDIMENTO
+                        </span>
+                      </div>
+
+                      <div className="rounded-xl bg-black/30 px-3 py-2 text-right">
+                        <p className="text-[10px] text-slate-400">Entrada</p>
+                        <p className="text-sm font-bold text-white">
+                          {formatMoney(plan.amount)} MZN
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                      <div className="rounded-2xl bg-black/25 p-3">
+                        <p className="text-[11px] text-slate-400">Lucro por dia</p>
+                        <p className="mt-1 text-lg font-bold text-emerald-400">
+                          {plan.dailyRate}%
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-2xl bg-black/25 p-3">
+                          <p className="text-[11px] text-slate-400">Duração</p>
+                          <p className="mt-1 text-sm font-bold text-white">
+                            {plan.durationDays} dias
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl bg-black/25 p-3">
+                          <p className="text-[11px] text-slate-400">Retorno total</p>
+                          <p className="mt-1 text-sm font-bold text-amber-300">
+                            {formatMoney(finalReturn)} MZN
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleBuy(plan.id)}
+                      disabled={buyingId === plan.id}
+                      className="mt-4 w-full rounded-2xl bg-amber-500 py-3 text-sm font-bold text-black transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {buyingId === plan.id ? "Processando..." : "Investir agora"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
+
+      {footerMessage && (
+        <div
+          className={`fixed bottom-20 left-1/2 z-40 w-[92%] max-w-md -translate-x-1/2 rounded-xl px-4 py-3 text-center shadow-lg backdrop-blur-sm ${
+            footerType === "success"
+              ? "border border-emerald-500/30 bg-emerald-500/15"
+              : "border border-red-500/30 bg-red-500/10"
+          }`}
+        >
+          <p
+            className={`text-sm font-bold ${
+              footerType === "success" ? "text-emerald-400" : "text-red-400"
+            }`}
+          >
+            {footerMessage}
+          </p>
+        </div>
+      )}
 
       <BottomNav />
     </main>

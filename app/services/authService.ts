@@ -132,6 +132,72 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
     dailyRate: 2.7,
     durationDays: 90,
   },
+
+  // ALTO RENDIMENTO - MAQUINAS BITCOIN
+  {
+    id: "alto-btc-1",
+    name: "ALTO RENDIMENTO - MAQUINA BITCOIN S9",
+    amount: 200,
+    dailyRate: 4.2,
+    durationDays: 30,
+    finalReturn: 452,
+  },
+  {
+    id: "alto-btc-2",
+    name: "ALTO RENDIMENTO - MAQUINA BITCOIN S17",
+    amount: 500,
+    dailyRate: 4.8,
+    durationDays: 30,
+    finalReturn: 1220,
+  },
+  {
+    id: "alto-btc-3",
+    name: "ALTO RENDIMENTO - MAQUINA BITCOIN S19",
+    amount: 1000,
+    dailyRate: 5.5,
+    durationDays: 30,
+    finalReturn: 2650,
+  },
+  {
+    id: "alto-btc-4",
+    name: "ALTO RENDIMENTO - MAQUINA BITCOIN S19 PRO",
+    amount: 2500,
+    dailyRate: 6.0,
+    durationDays: 35,
+    finalReturn: 7750,
+  },
+  {
+    id: "alto-btc-5",
+    name: "ALTO RENDIMENTO - MAQUINA BITCOIN S21",
+    amount: 5000,
+    dailyRate: 6.5,
+    durationDays: 40,
+    finalReturn: 18000,
+  },
+  {
+    id: "alto-btc-6",
+    name: "ALTO RENDIMENTO - MAQUINA BITCOIN S21 PRO",
+    amount: 10000,
+    dailyRate: 7.0,
+    durationDays: 45,
+    finalReturn: 41500,
+  },
+  {
+    id: "alto-btc-7",
+    name: "ALTO RENDIMENTO - MAQUINA BITCOIN ULTRA",
+    amount: 20000,
+    dailyRate: 7.8,
+    durationDays: 50,
+    finalReturn: 98000,
+  },
+  {
+    id: "alto-btc-8",
+    name: "ALTO RENDIMENTO - MAQUINA BITCOIN TITAN",
+    amount: 50000,
+    dailyRate: 8.5,
+    durationDays: 60,
+    finalReturn: 305000,
+  },
 ];
 
 const ADMIN_PHONE = "869933273";
@@ -241,19 +307,30 @@ function getWheelRewardByInvestment(totalInvested: number) {
 
   if (totalInvested >= 50000) {
     return chooseWeightedReward([
-      { reward: 0, weight: 50 },
-      { reward: 5, weight: 12 },
-      { reward: 10, weight: 12 },
+      { reward: 0, weight: 35 },
+      { reward: 5, weight: 20 },
+      { reward: 10, weight: 18 },
       { reward: 50, weight: 12 },
       { reward: 500, weight: 10 },
-      { reward: 1000, weight: 4 },
+      { reward: 1000, weight: 5 },
+    ]);
+  }
+
+  if (totalInvested >= 1000) {
+    return chooseWeightedReward([
+      { reward: 0, weight: 50 },
+      { reward: 5, weight: 25 },
+      { reward: 10, weight: 15 },
+      { reward: 50, weight: 8 },
+      { reward: 500, weight: 2 },
     ]);
   }
 
   return chooseWeightedReward([
     { reward: 0, weight: 65 },
     { reward: 5, weight: 20 },
-    { reward: 10, weight: 15 },
+    { reward: 10, weight: 12 },
+    { reward: 50, weight: 3 },
   ]);
 }
 
@@ -635,14 +712,17 @@ export async function buyInvestmentPlan(params: {
     }
 
     const userData: any = userSnap.data();
-    const currentBalance = Number(userData.balance ?? 0);
+    const currentBalance = round2(Number(userData.balance ?? 0));
+    const planAmount = round2(Number(plan.amount ?? 0));
 
-    if (currentBalance < plan.amount) {
-      throw new Error("Saldo insuficiente");
+    if (currentBalance < planAmount) {
+      throw new Error(
+        `Saldo insuficiente. Saldo atual: ${currentBalance} MZN | Necessário: ${planAmount} MZN`
+      );
     }
 
     tx.update(userRef, {
-      balance: round2(currentBalance - plan.amount),
+      balance: round2(currentBalance - planAmount),
     });
   });
 
@@ -656,13 +736,20 @@ export async function buyInvestmentPlan(params: {
     totalProfit: round2(
       plan.amount * (plan.dailyRate / 100) * plan.durationDays
     ),
-    finalReturn: plan.finalReturn ?? null,
+    finalReturn:
+      plan.finalReturn ??
+      round2(plan.amount + plan.amount * (plan.dailyRate / 100) * plan.durationDays),
     isPremium: !!plan.isPremium,
     status: "ativo",
     createdAt: serverTimestamp(),
   });
 
   await syncUserProfit(uid);
+
+  return {
+    success: true,
+    message: "Alugado com sucesso",
+  };
 }
 
 export async function getUserInvestments(uid: string) {
