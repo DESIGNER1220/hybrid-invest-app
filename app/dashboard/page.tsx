@@ -146,7 +146,7 @@ export default function DashboardPage() {
 
           <div className="relative h-40 w-full overflow-hidden rounded-2xl border border-white/10 shadow-lg">
             <Image
-              src="/dashboard/server.jpg"
+              src="/dashboard/finance.jpg"
               alt="Investimento"
               fill
               className="object-cover"
