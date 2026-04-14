@@ -14,12 +14,12 @@ import { useRouter } from "next/navigation";
 import BottomNav from "../components/BottomNav";
 
 const wheelItems = [
-  { label: "50 MZN", value: 50, color: "bg-amber-500" },
-  { label: "5 MZN", value: 5, color: "bg-blue-500" },
-  { label: "10 MZN", value: 10, color: "bg-emerald-500" },
-  { label: "500 MZN", value: 500, color: "bg-fuchsia-500" },
-  { label: "1000 MZN", value: 1000, color: "bg-red-500" },
-  { label: "BOA SORTE", value: 0, color: "bg-slate-500" },
+  { label: "50 MZN", value: 50, color: "#f59e0b" },
+  { label: "5 MZN", value: 5, color: "#3b82f6" },
+  { label: "10 MZN", value: 10, color: "#10b981" },
+  { label: "500 MZN", value: 500, color: "#d946ef" },
+  { label: "1000 MZN", value: 1000, color: "#ef4444" },
+  { label: "BOA SORTE", value: 0, color: "#64748b" },
 ];
 
 function formatDateTime(timestamp?: { seconds?: number }) {
@@ -37,6 +37,7 @@ function formatDateTime(timestamp?: { seconds?: number }) {
 export default function RodaPage() {
   const router = useRouter();
   const audioContextRef = useRef<AudioContext | null>(null);
+  const tickIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [uid, setUid] = useState("");
   const [loading, setLoading] = useState(true);
@@ -47,6 +48,10 @@ export default function RodaPage() {
   const [referrals, setReferrals] = useState(0);
   const [investedAmount, setInvestedAmount] = useState(0);
   const [history, setHistory] = useState<WheelSpinHistoryItem[]>([]);
+  const [activeSlice, setActiveSlice] = useState<number | null>(null);
+
+  const wheelSize = 288;
+  const sliceAngle = 360 / wheelItems.length;
 
   async function loadAll(userId: string) {
     const [profile, investments, historyData] = await Promise.all([
@@ -89,32 +94,48 @@ export default function RodaPage() {
     return () => unsubscribe();
   }, [router]);
 
-  function vibrateWin(isGood: boolean) {
-    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-      navigator.vibrate(isGood ? [120, 60, 120] : [80]);
-    }
-  }
+  useEffect(() => {
+    return () => {
+      stopTicking();
+    };
+  }, []);
 
-  function beep(frequency: number, duration = 120) {
+  function getAudioContext() {
     try {
       const AudioCtx =
         window.AudioContext ||
         (window as typeof window & { webkitAudioContext?: typeof AudioContext })
           .webkitAudioContext;
 
-      if (!AudioCtx) return;
+      if (!AudioCtx) return null;
 
       if (!audioContextRef.current) {
         audioContextRef.current = new AudioCtx();
       }
 
-      const ctx = audioContextRef.current;
+      return audioContextRef.current;
+    } catch {
+      return null;
+    }
+  }
+
+  function vibrateWin(isGood: boolean) {
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(isGood ? [120, 60, 120] : [80]);
+    }
+  }
+
+  function beep(frequency: number, duration = 120, type: OscillatorType = "sine", volume = 0.03) {
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+
       const oscillator = ctx.createOscillator();
       const gain = ctx.createGain();
 
-      oscillator.type = "sine";
+      oscillator.type = type;
       oscillator.frequency.value = frequency;
-      gain.gain.value = 0.03;
+      gain.gain.value = volume;
 
       oscillator.connect(gain);
       gain.connect(ctx.destination);
@@ -126,29 +147,70 @@ export default function RodaPage() {
     }
   }
 
+  function playTickSound() {
+    beep(1800, 18, "square", 0.025);
+  }
+
+  function startTicking() {
+    stopTicking();
+
+    let count = 0;
+    tickIntervalRef.current = setInterval(() => {
+      playTickSound();
+      setActiveSlice((prev) => {
+        if (prev === null) return 0;
+        return (prev + 1) % wheelItems.length;
+      });
+
+      count += 1;
+
+      // desaceleração leve visual do destaque
+      if (count > 28 && tickIntervalRef.current) {
+        clearInterval(tickIntervalRef.current);
+        let slowIndex = activeSlice ?? 0;
+
+        const slowPattern = [160, 190, 220, 260, 310, 380];
+        slowPattern.forEach((delay) => {
+          setTimeout(() => {
+            playTickSound();
+            slowIndex = (slowIndex + 1) % wheelItems.length;
+            setActiveSlice(slowIndex);
+          }, delay);
+        });
+      }
+    }, 90);
+  }
+
+  function stopTicking() {
+    if (tickIntervalRef.current) {
+      clearInterval(tickIntervalRef.current);
+      tickIntervalRef.current = null;
+    }
+  }
+
   function playSpinSound() {
-    beep(420, 80);
-    setTimeout(() => beep(520, 80), 120);
-    setTimeout(() => beep(620, 120), 240);
+    startTicking();
+    beep(420, 50);
+    setTimeout(() => beep(520, 50), 100);
+    setTimeout(() => beep(620, 70), 220);
   }
 
   function playResultSound(reward: number) {
     if (reward > 0) {
       beep(700, 150);
       setTimeout(() => beep(900, 200), 180);
+      setTimeout(() => beep(1100, 220), 380);
       vibrateWin(true);
     } else {
-      beep(320, 120);
+      beep(320, 120, "sawtooth", 0.03);
       vibrateWin(false);
     }
   }
 
   function getTargetAngleByReward(reward: number) {
     const rewardIndex = wheelItems.findIndex((item) => item.value === reward);
-    const sliceAngle = 360 / wheelItems.length;
     const centerAngle = rewardIndex * sliceAngle + sliceAngle / 2;
-    const pointerAngle = 0;
-    const correction = 360 - centerAngle + pointerAngle;
+    const correction = 360 - centerAngle;
 
     return correction;
   }
@@ -160,6 +222,7 @@ export default function RodaPage() {
       setFooterMessage("");
       setResult("");
       setSpinning(true);
+      setActiveSlice(0);
 
       const spinData = await spinWheel(uid);
       const targetAngle = getTargetAngleByReward(spinData.reward);
@@ -170,12 +233,20 @@ export default function RodaPage() {
       setRotation(finalRotation);
 
       setTimeout(async () => {
+        stopTicking();
+
+        const winnerIndex = wheelItems.findIndex(
+          (item) => item.value === spinData.reward
+        );
+        setActiveSlice(winnerIndex >= 0 ? winnerIndex : null);
+
         setResult(spinData.label);
         playResultSound(spinData.reward);
         await loadAll(uid);
         setSpinning(false);
       }, 4200);
     } catch (error: any) {
+      stopTicking();
       setFooterMessage(error?.message || "Erro ao girar");
       setSpinning(false);
     }
@@ -197,9 +268,24 @@ export default function RodaPage() {
     return "Investimento de 100 MZN ou mais: pode ganhar até 10 MZN";
   }, [referrals, investedAmount]);
 
+  const canSpin = referrals >= 1;
+
+  const wheelGradient = useMemo(() => {
+    let current = 0;
+
+    const parts = wheelItems.map((item) => {
+      const start = current;
+      const end = current + sliceAngle;
+      current = end;
+      return `${item.color} ${start}deg ${end}deg`;
+    });
+
+    return `conic-gradient(${parts.join(", ")})`;
+  }, [sliceAngle]);
+
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-950 text-white p-4">
+      <main className="min-h-screen bg-slate-950 p-4 text-white">
         Carregando...
       </main>
     );
@@ -208,7 +294,7 @@ export default function RodaPage() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 pt-4 pb-28 text-white">
       <div className="mx-auto max-w-md space-y-4">
-        <h1 className="text-xl font-bold text-center">Roda da Sorte</h1>
+        <h1 className="text-center text-xl font-bold">Roda da Sorte</h1>
 
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-xl border border-white/10 bg-white/5 p-3">
@@ -226,34 +312,86 @@ export default function RodaPage() {
 
         <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-center">
           <p className="text-xs text-slate-400">Regra ativa</p>
-          <p className="mt-1 text-sm font-semibold text-white">{nextRuleMessage}</p>
+          <p className="mt-1 text-sm font-semibold text-white">
+            {nextRuleMessage}
+          </p>
         </div>
 
         <div className="relative mx-auto flex h-80 w-80 items-center justify-center">
-          <div className="absolute top-0 z-20 h-0 w-0 border-l-[14px] border-r-[14px] border-b-[24px] border-l-transparent border-r-transparent border-b-amber-400" />
-
+          {/* glow exterior animado */}
           <div
-            className="relative h-72 w-72 overflow-hidden rounded-full border-8 border-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.35)]"
+            className={`absolute inset-0 rounded-full blur-2xl transition-all duration-500 ${
+              spinning ? "scale-105 opacity-100" : "opacity-60"
+            }`}
+            style={{
+              background:
+                "radial-gradient(circle, rgba(245,158,11,0.28) 0%, rgba(245,158,11,0.12) 35%, rgba(0,0,0,0) 72%)",
+            }}
+          />
+
+          {/* ponteiro */}
+          <div className="absolute top-0 z-30 h-0 w-0 border-l-[14px] border-r-[14px] border-b-[24px] border-l-transparent border-r-transparent border-b-amber-400 drop-shadow-[0_0_10px_rgba(245,158,11,0.7)]" />
+
+          {/* anel pulsante */}
+          <div
+            className={`absolute h-72 w-72 rounded-full border border-amber-300/30 ${
+              spinning ? "animate-ping" : ""
+            }`}
+          />
+
+          {/* roda */}
+          <div
+            className="relative z-20 h-72 w-72 rounded-full border-8 border-amber-500"
             style={{
               transform: `rotate(${rotation}deg)`,
-              transition: spinning ? "transform 4.2s cubic-bezier(0.15, 0.85, 0.2, 1)" : "none",
+              transition: spinning
+                ? "transform 4.2s cubic-bezier(0.15, 0.85, 0.2, 1)"
+                : "none",
+              background: wheelGradient,
+              boxShadow: spinning
+                ? "0 0 40px rgba(245,158,11,0.45), inset 0 0 30px rgba(255,255,255,0.08)"
+                : "0 0 24px rgba(245,158,11,0.28), inset 0 0 20px rgba(255,255,255,0.04)",
             }}
           >
+            {/* divisões */}
+            {wheelItems.map((_, index) => (
+              <div
+                key={`divider-${index}`}
+                className="absolute left-1/2 top-1/2 h-1/2 w-[2px] origin-bottom bg-white/20"
+                style={{
+                  transform: `translateX(-50%) rotate(${index * sliceAngle}deg)`,
+                  transformOrigin: "center bottom",
+                }}
+              />
+            ))}
+
+            {/* destaque por segmento */}
             {wheelItems.map((item, index) => {
-              const rotationDeg = index * 60;
+              const angle = index * sliceAngle + sliceAngle / 2;
+              const isActive = activeSlice === index;
 
               return (
                 <div
                   key={item.label}
-                  className={`absolute left-1/2 top-1/2 h-1/2 w-1/2 origin-bottom-left ${item.color} border border-black/10`}
+                  className="absolute left-1/2 top-1/2"
                   style={{
-                    transform: `rotate(${rotationDeg}deg) skewY(-30deg)`,
-                    transformOrigin: "0% 100%",
+                    transform: `translate(-50%, -50%) rotate(${angle}deg)`,
                   }}
                 >
                   <div
-                    className="absolute left-8 top-6 -rotate-[60deg] text-[10px] font-bold text-white"
-                    style={{ transform: "skewY(30deg) rotate(30deg)" }}
+                    className={`rounded-md px-2 py-1 text-center text-[11px] font-bold text-white transition-all duration-100 sm:text-xs ${
+                      isActive ? "scale-110" : "scale-100"
+                    }`}
+                    style={{
+                      transform: "translateY(-108px) rotate(90deg)",
+                      textShadow: isActive
+                        ? "0 0 12px rgba(255,255,255,0.95)"
+                        : "0 1px 2px rgba(0,0,0,0.35)",
+                      boxShadow: isActive
+                        ? "0 0 18px rgba(255,255,255,0.28)"
+                        : "none",
+                      background: isActive ? "rgba(255,255,255,0.12)" : "transparent",
+                    }}
                   >
                     {item.label}
                   </div>
@@ -261,16 +399,32 @@ export default function RodaPage() {
               );
             })}
 
-            <div className="absolute left-1/2 top-1/2 z-10 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white/20 bg-slate-950 shadow-lg" />
+            {/* brilho interno */}
+            <div
+              className="absolute inset-0 rounded-full"
+              style={{
+                background:
+                  "radial-gradient(circle at 50% 35%, rgba(255,255,255,0.18), rgba(255,255,255,0.03) 28%, rgba(255,255,255,0) 55%)",
+              }}
+            />
+
+            {/* centro */}
+            <div className="absolute left-1/2 top-1/2 z-20 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4 border-white/20 bg-slate-950 shadow-lg">
+              <div className="h-5 w-5 rounded-full bg-slate-800" />
+            </div>
           </div>
         </div>
 
         <button
           onClick={handleSpin}
-          disabled={spinning}
-          className="w-full rounded-xl bg-amber-500 py-3 text-sm font-bold text-black transition hover:bg-amber-400 disabled:opacity-70"
+          disabled={spinning || !canSpin}
+          className="w-full rounded-xl bg-amber-500 py-3 text-sm font-bold text-black transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {spinning ? "Girando..." : "Girar roda"}
+          {spinning
+            ? "Girando..."
+            : canSpin
+            ? "Girar roda"
+            : "Convide 1 amigo para ativar"}
         </button>
 
         {result && (
@@ -287,10 +441,7 @@ export default function RodaPage() {
           ) : (
             <div className="mt-3 space-y-2">
               {history.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-lg bg-slate-950/40 p-3"
-                >
+                <div key={item.id} className="rounded-lg bg-slate-950/40 p-3">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm font-bold text-white">{item.label}</p>
                     <p className="text-[11px] text-slate-400">
