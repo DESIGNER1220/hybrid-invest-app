@@ -1,9 +1,10 @@
-import "./globals.css";
 import type { Metadata } from "next";
+import "./globals.css";
+import FloatingChatButton from "./components/FloatingChatButton";
 
 export const metadata: Metadata = {
   title: "Hybrid Invest",
-  description: "Plataforma de investimento",
+  description: "Hybrid Invest App",
 };
 
 export default function RootLayout({
@@ -13,7 +14,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt">
-      <body>{children}</body>
+      <body>
+        {children}
+        <FloatingChatButton />
+      </body>
     </html>
   );
 }

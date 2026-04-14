@@ -15,9 +15,7 @@ export default function DepositoPage() {
   const [transactionCode, setTransactionCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
-
-  const mpesaNumber = "849429961";
-  const mpesaOwner = "flavia";
+  const [footerError, setFooterError] = useState("");
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -37,19 +35,32 @@ export default function DepositoPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!uid) return alert("Utilizador não autenticado.");
-    if (!amount || Number(amount) <= 0) return alert("Informe um valor válido.");
-    if (!transactionCode.trim()) return alert("Informe o ID da transação.");
+    setFooterError("");
+    setSuccessMessage("");
+
+    if (!uid) {
+      setFooterError("Utilizador não autenticado");
+      return;
+    }
+
+    if (!amount || Number(amount) <= 0) {
+      setFooterError("Informe um valor válido");
+      return;
+    }
+
+    if (!transactionCode.trim()) {
+      setFooterError("Informe o ID da transação");
+      return;
+    }
 
     try {
       setSubmitting(true);
-      setSuccessMessage("");
 
       await createTransaction({
         uid,
         type: "deposito",
         method: "M-Pesa",
-        phone: userPhone || mpesaNumber,
+        phone: userPhone || "849429961",
         amount: Number(amount),
         transactionCode: transactionCode.trim().toUpperCase(),
       });
@@ -60,14 +71,14 @@ export default function DepositoPage() {
         router.push("/dashboard");
       }, 1500);
     } catch (error: any) {
-      alert(error?.message || "Erro ao enviar depósito.");
+      setFooterError(error?.message || "Erro ao enviar depósito");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-3 pb-24 pt-3 text-white">
+    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-3 pb-28 pt-3 text-white">
       <div className="mx-auto max-w-md space-y-3">
         <h1 className="text-xl font-bold">Depósito</h1>
 
@@ -87,11 +98,11 @@ export default function DepositoPage() {
             </div>
             <div>
               <p className="text-[11px] text-slate-400">Número</p>
-              <p className="text-sm font-semibold text-white">{mpesaNumber}</p>
+              <p className="text-sm font-semibold text-white">849429961</p>
             </div>
             <div>
               <p className="text-[11px] text-slate-400">Nome</p>
-              <p className="text-sm font-semibold text-white capitalize">{mpesaOwner}</p>
+              <p className="text-sm font-semibold text-white capitalize">flavia</p>
             </div>
           </div>
 
@@ -131,12 +142,18 @@ export default function DepositoPage() {
                   Processando...
                 </span>
               ) : (
-                "Confirmar"
+                "Confirmar depósito"
               )}
             </button>
           </form>
         </div>
       </div>
+
+      {footerError && (
+        <div className="fixed bottom-20 left-1/2 z-40 w-[92%] max-w-md -translate-x-1/2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-center shadow-lg backdrop-blur-sm">
+          <p className="text-sm font-bold text-red-400">{footerError}</p>
+        </div>
+      )}
 
       <BottomNav />
     </main>

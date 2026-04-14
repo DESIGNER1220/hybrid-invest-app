@@ -16,6 +16,10 @@ import BottomNav from "../components/BottomNav";
 const FALLBACK_IMAGE = "/plans/hybr-1-new.png";
 
 const PLAN_IMAGES: Record<string, string> = {
+  "premium-1": "/plans/premium-1.png",
+  "premium-2": "/plans/premium-2.png",
+  "premium-3": "/plans/premium-3.png",
+  "premium-4": "/plans/premium-4.png",
   "hybr-1": "/plans/hybr-1-new.png",
   "hybr-2": "/plans/hybr-2-new.png",
   "hybr-3": "/plans/hybr-3-new.png",
@@ -28,9 +32,7 @@ type TransactionItem = {
   type: "deposito" | "levantamento";
   amount: number;
   status: string;
-  createdAt?: {
-    seconds?: number;
-  };
+  createdAt?: { seconds?: number };
 };
 
 type UserProfile = {
@@ -90,9 +92,7 @@ export default function DashboardPage() {
 
   const totalWithdrawals = useMemo(() => {
     return transactions
-      .filter(
-        (item) => item.type === "levantamento" && item.status === "aprovado"
-      )
+      .filter((item) => item.type === "levantamento" && item.status === "aprovado")
       .reduce((sum, item) => sum + Number(item.amount || 0), 0);
   }, [transactions]);
 
@@ -108,7 +108,6 @@ export default function DashboardPage() {
     }
 
     const plan = INVESTMENT_PLANS.find((item) => item.id === planId);
-
     if (!plan) {
       alert("Plano não encontrado.");
       return;
@@ -122,7 +121,6 @@ export default function DashboardPage() {
 
     try {
       setBuyingPlanId(planId);
-
       await buyInvestmentPlan({
         uid: currentUser.uid,
         planId,
@@ -131,14 +129,14 @@ export default function DashboardPage() {
       await loadDashboardData(currentUser.uid);
       alert("Alugado com sucesso.");
     } catch (error: any) {
-      const message = error?.message || "Erro ao processar o aluguer.";
-      alert(message);
+      alert(error?.message || "Erro ao processar o aluguer.");
     } finally {
       setBuyingPlanId(null);
     }
   }
 
-  const normalPlans = INVESTMENT_PLANS;
+  const premiumPlans = INVESTMENT_PLANS.filter((plan) => plan.isPremium);
+  const normalPlans = INVESTMENT_PLANS.filter((plan) => !plan.isPremium);
 
   if (loading) {
     return (
@@ -182,7 +180,6 @@ export default function DashboardPage() {
             <h3 className="mt-1 text-lg font-bold text-emerald-400">
               {totalDeposits.toLocaleString("pt-MZ")} MZN
             </h3>
-
             <button
               onClick={() => router.push("/deposito")}
               className="mt-2 w-full rounded-lg bg-emerald-500 px-3 py-2 text-xs font-semibold text-black transition hover:bg-emerald-400"
@@ -196,7 +193,6 @@ export default function DashboardPage() {
             <h3 className="mt-1 text-lg font-bold text-amber-400">
               {totalWithdrawals.toLocaleString("pt-MZ")} MZN
             </h3>
-
             <button
               onClick={() => router.push("/levantamento")}
               className="mt-2 w-full rounded-lg bg-amber-500 px-3 py-2 text-xs font-semibold text-black transition hover:bg-amber-400"
@@ -213,17 +209,77 @@ export default function DashboardPage() {
           </h3>
         </div>
 
+        {premiumPlans.length > 0 && (
+          <div className="mt-4">
+            <h2 className="mb-2 text-sm font-bold text-blue-400">
+              Investimentos Premium
+            </h2>
+
+            <div className="space-y-4">
+              {premiumPlans.map((plan) => {
+                const imageSrc = PLAN_IMAGES[plan.id] || FALLBACK_IMAGE;
+
+                return (
+                  <div
+                    key={plan.id}
+                    className="rounded-xl border border-blue-500/20 bg-white/5 p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="relative h-20 w-20 overflow-hidden rounded-lg">
+                        <Image
+                          src={imageSrc}
+                          alt={plan.name}
+                          fill
+                          sizes="80px"
+                          className="object-cover"
+                        />
+                      </div>
+
+                      <div className="flex-1 text-xs text-slate-300">
+                        <h3 className="text-sm font-bold text-blue-400">{plan.name}</h3>
+                        <p>
+                          Valor:{" "}
+                          <span className="font-semibold text-white">
+                            {plan.amount.toLocaleString("pt-MZ")} MZN
+                          </span>
+                        </p>
+                        <p>
+                          Duração:{" "}
+                          <span className="font-semibold text-white">
+                            {plan.durationDays} dias
+                          </span>
+                        </p>
+                        <p>
+                          Retorno:{" "}
+                          <span className="font-semibold text-emerald-400">
+                            {Number(plan.finalReturn ?? 0).toLocaleString("pt-MZ")} MZN
+                          </span>
+                        </p>
+
+                        <button
+                          onClick={() => handleRentPlan(plan.id)}
+                          disabled={buyingPlanId === plan.id}
+                          className="mt-2 w-full rounded bg-blue-600 py-2 font-bold text-white transition hover:bg-blue-500 disabled:opacity-70"
+                        >
+                          {buyingPlanId === plan.id ? "Processando..." : "Alugar"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="mt-4">
           <h2 className="mb-2 text-sm font-bold text-amber-400">
-            Investimentos
+            Investimentos HYBR
           </h2>
 
           <div className="space-y-4">
             {normalPlans.map((plan) => {
-              const imageSrc =
-                PLAN_IMAGES[plan.id] && PLAN_IMAGES[plan.id].trim() !== ""
-                  ? PLAN_IMAGES[plan.id]
-                  : FALLBACK_IMAGE;
+              const imageSrc = PLAN_IMAGES[plan.id] || FALLBACK_IMAGE;
 
               return (
                 <div
@@ -242,10 +298,7 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="flex-1 text-xs text-slate-300">
-                      <h3 className="text-sm font-bold text-amber-400">
-                        {plan.name}
-                      </h3>
-
+                      <h3 className="text-sm font-bold text-amber-400">{plan.name}</h3>
                       <p>
                         Valor:{" "}
                         <span className="font-semibold text-white">

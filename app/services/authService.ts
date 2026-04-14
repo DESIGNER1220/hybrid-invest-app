@@ -12,6 +12,7 @@ import {
   getDocs,
   increment,
   limit,
+  onSnapshot,
   orderBy,
   query,
   runTransaction,
@@ -32,9 +33,70 @@ export type InvestmentPlan = {
   dailyRate: number;
   durationDays: number;
   finalReturn?: number;
+  isPremium?: boolean;
+};
+
+export type SupportMessage = {
+  id: string;
+  uid: string;
+  senderUid: string;
+  senderRole: "admin" | "user";
+  text?: string;
+  createdAt?: { seconds?: number };
+};
+
+export type SupportUser = {
+  id: string;
+  phone?: string;
+  email?: string;
+  role?: string;
+};
+
+export type WheelSpinHistoryItem = {
+  id: string;
+  uid: string;
+  reward: number;
+  label: string;
+  createdAt?: { seconds?: number };
 };
 
 export const INVESTMENT_PLANS: InvestmentPlan[] = [
+  {
+    id: "premium-1",
+    name: "HYBRD PREMIUM 1",
+    amount: 1000,
+    dailyRate: 14.7,
+    durationDays: 15,
+    finalReturn: 3205,
+    isPremium: true,
+  },
+  {
+    id: "premium-2",
+    name: "HYBRD PREMIUM 2",
+    amount: 100,
+    dailyRate: 13.6666667,
+    durationDays: 15,
+    finalReturn: 305,
+    isPremium: true,
+  },
+  {
+    id: "premium-3",
+    name: "HYBRD PREMIUM 3",
+    amount: 500,
+    dailyRate: 14.7333333,
+    durationDays: 15,
+    finalReturn: 1605,
+    isPremium: true,
+  },
+  {
+    id: "premium-4",
+    name: "HYBRD PREMIUM 4",
+    amount: 10000,
+    dailyRate: 10.1366667,
+    durationDays: 15,
+    finalReturn: 25205,
+    isPremium: true,
+  },
   {
     id: "hybr-1",
     name: "HYBR-1",
@@ -75,16 +137,6 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
 const ADMIN_PHONE = "869933273";
 const DAILY_SPIN_HARD_LIMIT = 20;
 const SPIN_COOLDOWN_MS = 10_000;
-
-export type WheelSpinHistoryItem = {
-  id: string;
-  uid: string;
-  reward: number;
-  label: string;
-  createdAt?: {
-    seconds?: number;
-  };
-};
 
 function normalizePhone(phone: string) {
   return phone.replace(/\D/g, "");
@@ -253,7 +305,6 @@ export async function registerUser(params: {
     collection(db, "users"),
     where("phoneNormalized", "==", phoneNormalized)
   );
-
   const existingPhoneSnap = await getDocs(existingPhoneQuery);
 
   if (!existingPhoneSnap.empty) {
@@ -292,12 +343,10 @@ export async function registerUser(params: {
       collection(db, "users"),
       where("referralCode", "==", refCode)
     );
-
     const refSnap = await getDocs(refQuery);
 
     if (!refSnap.empty) {
       const referrerDoc = refSnap.docs[0];
-
       await updateDoc(referrerDoc.ref, {
         referrals: increment(1),
       });
@@ -314,7 +363,6 @@ export async function loginUserByPhone(phone: string, password: string) {
     collection(db, "users"),
     where("phoneNormalized", "==", phoneNormalized)
   );
-
   const querySnapshot = await getDocs(q);
 
   if (querySnapshot.empty) {
@@ -339,11 +387,9 @@ export async function syncUserProfit(uid: string) {
     collection(db, "investments"),
     where("uid", "==", uid)
   );
-
   const snapshot = await getDocs(investmentsQuery);
 
   let totalAccruedProfit = 0;
-
   snapshot.docs.forEach((item) => {
     const data: any = item.data();
     if (data.status === "ativo") {
@@ -425,7 +471,6 @@ export async function getPendingTransactions() {
     collection(db, "transactions"),
     where("status", "==", "pendente")
   );
-
   const snapshot = await getDocs(q);
 
   const data = snapshot.docs.map((item) => ({
@@ -481,7 +526,6 @@ export async function approveTransaction(transactionId: string) {
           collection(db, "users"),
           where("referralCode", "==", referredBy)
         );
-
         const refSnap = await getDocs(refQuery);
 
         if (!refSnap.empty) {
@@ -553,7 +597,6 @@ export async function approveTransaction(transactionId: string) {
   });
 
   const transactionSnap = await getDoc(transactionRef);
-
   if (transactionSnap.exists()) {
     const transactionData: any = transactionSnap.data();
     if (transactionData?.uid) {
@@ -578,7 +621,6 @@ export async function buyInvestmentPlan(params: {
   const { uid, planId } = params;
 
   const plan = INVESTMENT_PLANS.find((item) => item.id === planId);
-
   if (!plan) {
     throw new Error("Plano não encontrado.");
   }
@@ -615,6 +657,7 @@ export async function buyInvestmentPlan(params: {
       plan.amount * (plan.dailyRate / 100) * plan.durationDays
     ),
     finalReturn: plan.finalReturn ?? null,
+    isPremium: !!plan.isPremium,
     status: "ativo",
     createdAt: serverTimestamp(),
   });
@@ -662,7 +705,6 @@ export async function getReferralEarnings(referrerId: string) {
     collection(db, "referralEarnings"),
     where("referrerId", "==", referrerId)
   );
-
   const snapshot = await getDocs(q);
 
   const data = snapshot.docs.map((item) => ({
@@ -685,16 +727,10 @@ export async function createBonusCode(params: {
   const code = normalizeBonusCode(params.code);
   const amount = Number(params.amount);
 
-  if (!code) {
-    throw new Error("Informe o código.");
-  }
-
-  if (!amount || amount <= 0) {
-    throw new Error("Informe um valor válido.");
-  }
+  if (!code) throw new Error("Informe o código.");
+  if (!amount || amount <= 0) throw new Error("Informe um valor válido.");
 
   const existing = await getDoc(doc(db, "bonusCodes", code));
-
   if (existing.exists()) {
     throw new Error("Este código já existe.");
   }
@@ -749,23 +785,19 @@ export async function redeemBonusCode(uid: string, code: string) {
 
   await runTransaction(db, async (tx) => {
     const bonusSnap = await tx.get(bonusRef);
-
     if (!bonusSnap.exists()) {
       throw new Error("Código inválido");
     }
 
     const bonusData: any = bonusSnap.data();
-
     if (!bonusData.isActive) {
       throw new Error("Código inativo");
     }
-
     if (bonusData.used) {
       throw new Error("Código já utilizado");
     }
 
     const userSnap = await tx.get(userRef);
-
     if (!userSnap.exists()) {
       throw new Error("Utilizador não encontrado");
     }
@@ -797,7 +829,6 @@ export async function spinWheel(uid: string) {
 
   await runTransaction(db, async (tx) => {
     const userSnap = await tx.get(userRef);
-
     if (!userSnap.exists()) {
       throw new Error("Usuário não encontrado");
     }
@@ -861,13 +892,73 @@ export async function getWheelSpinHistory(uid: string) {
     orderBy("createdAt", "desc"),
     limit(20)
   );
+  const snapshot = await getDocs(q);
 
+  return snapshot.docs.map((item) => ({
+    id: item.id,
+    ...item.data(),
+  })) as WheelSpinHistoryItem[];
+}
+
+export async function sendSupportMessage(params: {
+  threadUid: string;
+  senderUid: string;
+  senderRole: "admin" | "user";
+  text?: string;
+}) {
+  const { threadUid, senderUid, senderRole, text } = params;
+
+  if (!text?.trim()) {
+    throw new Error("Escreva uma mensagem.");
+  }
+
+  await addDoc(collection(db, "supportChats", threadUid, "messages"), {
+    uid: threadUid,
+    senderUid,
+    senderRole,
+    text: text.trim(),
+    createdAt: serverTimestamp(),
+  });
+
+  await setDoc(
+    doc(db, "supportChats", threadUid),
+    {
+      uid: threadUid,
+      lastMessage: text.trim(),
+      lastSenderRole: senderRole,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
+export function subscribeSupportMessages(
+  threadUid: string,
+  callback: (messages: SupportMessage[]) => void
+) {
+  const q = query(
+    collection(db, "supportChats", threadUid, "messages"),
+    orderBy("createdAt", "asc")
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const data = snapshot.docs.map((item) => ({
+      id: item.id,
+      ...item.data(),
+    })) as SupportMessage[];
+
+    callback(data);
+  });
+}
+
+export async function getSupportUsers() {
+  const q = query(collection(db, "users"), where("role", "==", "user"));
   const snapshot = await getDocs(q);
 
   const data = snapshot.docs.map((item) => ({
     id: item.id,
     ...item.data(),
-  })) as WheelSpinHistoryItem[];
+  })) as SupportUser[];
 
-  return data;
+  return data.sort((a, b) => (a.phone || "").localeCompare(b.phone || ""));
 }
