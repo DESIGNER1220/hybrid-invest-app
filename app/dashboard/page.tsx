@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../lib/firebase";
-import { getUserProfile } from "../services/authService";
+import { getUserProfile, logoutUser } from "../services/authService";
 import BottomNav from "../components/BottomNav";
+import { LogOut } from "lucide-react";
 
 type UserProfile = {
   balance?: number;
@@ -28,6 +29,11 @@ export default function DashboardPage() {
   async function load(uid: string) {
     const profile = await getUserProfile(uid);
     setUserData(profile as UserProfile);
+  }
+
+  async function handleLogout() {
+    await logoutUser();
+    router.push("/login");
   }
 
   useEffect(() => {
@@ -63,9 +69,19 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black px-4 pt-4 pb-28 text-white">
+    <main className="relative min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black px-4 pt-4 pb-28 text-white">
+      
+      {/* 🔴 BOTÃO LOGOUT (APENAS ÍCONE) */}
+      <button
+        onClick={handleLogout}
+        className="absolute right-4 top-4 rounded-full bg-red-500/20 p-2 text-red-400 shadow hover:bg-red-500/30"
+      >
+        <LogOut size={18} />
+      </button>
+
       <div className="mx-auto max-w-md space-y-5">
-        {/* QUADRO SALDO/LUCRO/BÓNUS */}
+        
+        {/* QUADRO SALDO */}
         <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl backdrop-blur">
           <div className="space-y-3">
             <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-center">
@@ -79,18 +95,14 @@ export default function DashboardPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-4 text-center">
-                <p className="text-[11px] uppercase tracking-wide text-slate-300">
-                  Lucro
-                </p>
+                <p className="text-[11px] text-slate-300">Lucro</p>
                 <h3 className="mt-1 text-base font-bold text-cyan-400">
                   {formatMoney(totalProfit)} MZN
                 </h3>
               </div>
 
               <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4 text-center">
-                <p className="text-[11px] uppercase tracking-wide text-slate-300">
-                  Bónus
-                </p>
+                <p className="text-[11px] text-slate-300">Bónus</p>
                 <h3 className="mt-1 text-base font-bold text-blue-400">
                   {formatMoney(bonus)} MZN
                 </h3>
@@ -103,25 +115,25 @@ export default function DashboardPage() {
         <div className="flex justify-center gap-4">
           <button
             onClick={() => router.push("/deposito")}
-            className="w-36 rounded-2xl bg-emerald-500 py-3 text-sm font-bold text-black shadow-lg transition hover:bg-emerald-400"
+            className="w-36 rounded-2xl bg-emerald-500 py-3 text-sm font-bold text-black shadow-lg hover:bg-emerald-400"
           >
             Depositar
           </button>
 
           <button
             onClick={() => router.push("/levantamento")}
-            className="w-36 rounded-2xl bg-amber-500 py-3 text-sm font-bold text-black shadow-lg transition hover:bg-amber-400"
+            className="w-36 rounded-2xl bg-amber-500 py-3 text-sm font-bold text-black shadow-lg hover:bg-amber-400"
           >
             Levantar
           </button>
         </div>
 
-        {/* BOTÃO ADMIN */}
+        {/* ADMIN */}
         {isAdmin && (
           <div className="flex justify-center">
             <button
               onClick={() => router.push("/admin")}
-              className="rounded-xl bg-red-500 px-4 py-2 text-xs font-bold text-white shadow-lg transition hover:bg-red-400"
+              className="rounded-xl bg-red-500 px-4 py-2 text-xs font-bold text-white shadow-lg hover:bg-red-400"
             >
               Painel do Administrador
             </button>
@@ -130,62 +142,22 @@ export default function DashboardPage() {
 
         {/* IMAGENS */}
         <div className="space-y-3">
-          <div className="relative h-40 w-full overflow-hidden rounded-2xl border border-white/10 shadow-lg">
+          <div className="relative h-40 w-full rounded-2xl overflow-hidden border border-white/10 shadow-lg">
             <Image
               src="/dashboard/server.jpg"
               alt="Infraestrutura"
               fill
               className="object-cover"
             />
-            <div className="absolute inset-0 bg-black/25" />
-            <div className="absolute bottom-3 left-3 right-3">
-              <p className="text-sm font-bold text-white">
-                Infraestrutura tecnológica moderna
-              </p>
-            </div>
           </div>
 
-          <div className="relative h-40 w-full overflow-hidden rounded-2xl border border-white/10 shadow-lg">
+          <div className="relative h-40 w-full rounded-2xl overflow-hidden border border-white/10 shadow-lg">
             <Image
               src="/dashboard/finance.jpg"
               alt="Investimento"
               fill
               className="object-cover"
             />
-            <div className="absolute inset-0 bg-black/25" />
-            <div className="absolute bottom-3 left-3 right-3">
-              <p className="text-sm font-bold text-white">
-                Crescimento financeiro com visão de futuro
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* TEXTO EMPRESA */}
-        <div className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-slate-900 p-5 text-center shadow-lg">
-          <div className="mb-3 flex items-center justify-center gap-2">
-            <span className="text-xl">🏢</span>
-            <h2 className="text-lg font-bold text-amber-400">Sobre a HYBR</h2>
-          </div>
-
-          <p className="text-sm leading-relaxed text-slate-200">
-            O{" "}
-            <span className="font-bold text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.45)]">
-              HYBR
-            </span>{" "}
-            é um sistema de rendimento financeiro projectado para ajudar muitos
-            Moçambicanos desde{" "}
-            <span className="font-bold text-white">1 de Abril de 2026</span>,
-            criando evolução financeira e novas oportunidades para o futuro.
-          </p>
-
-          <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
-            <p className="text-sm text-slate-300">
-              <span className="mr-1">📍</span>
-              Estamos localizados em{" "}
-              <span className="font-bold text-white">Nampula</span>, onde se
-              encontra a nossa sede.
-            </p>
           </div>
         </div>
       </div>
