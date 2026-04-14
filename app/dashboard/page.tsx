@@ -65,6 +65,40 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black px-4 pt-4 pb-28 text-white">
       <div className="mx-auto max-w-md space-y-5">
+        {/* QUADRO SALDO/LUCRO/BÓNUS */}
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl backdrop-blur">
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-center">
+              <p className="text-[11px] uppercase tracking-wide text-slate-300">
+                Saldo total
+              </p>
+              <h2 className="mt-1 text-xl font-bold text-emerald-400">
+                {formatMoney(total)} MZN
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-4 text-center">
+                <p className="text-[11px] uppercase tracking-wide text-slate-300">
+                  Lucro
+                </p>
+                <h3 className="mt-1 text-base font-bold text-cyan-400">
+                  {formatMoney(totalProfit)} MZN
+                </h3>
+              </div>
+
+              <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4 text-center">
+                <p className="text-[11px] uppercase tracking-wide text-slate-300">
+                  Bónus
+                </p>
+                <h3 className="mt-1 text-base font-bold text-blue-400">
+                  {formatMoney(bonus)} MZN
+                </h3>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* BOTÕES */}
         <div className="flex justify-center gap-4">
           <button
@@ -93,39 +127,6 @@ export default function DashboardPage() {
             </button>
           </div>
         )}
-
-        {/* SALDO + LUCRO */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-center shadow-lg">
-            <p className="text-[11px] uppercase tracking-wide text-slate-300">
-              Saldo total
-            </p>
-            <h3 className="mt-1 text-lg font-bold text-emerald-400">
-              {formatMoney(total)} MZN
-            </h3>
-          </div>
-
-          <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-4 text-center shadow-lg">
-            <p className="text-[11px] uppercase tracking-wide text-slate-300">
-              Lucro
-            </p>
-            <h3 className="mt-1 text-lg font-bold text-cyan-400">
-              {formatMoney(totalProfit)} MZN
-            </h3>
-          </div>
-        </div>
-
-        {/* BÓNUS */}
-        <div className="flex justify-center">
-          <div className="w-36 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-3 text-center shadow-lg">
-            <p className="text-[11px] uppercase tracking-wide text-slate-300">
-              Bónus
-            </p>
-            <h3 className="mt-1 text-base font-bold text-blue-400">
-              {formatMoney(bonus)} MZN
-            </h3>
-          </div>
-        </div>
 
         {/* IMAGENS */}
         <div className="space-y-3">

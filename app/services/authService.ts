@@ -60,6 +60,15 @@ export type WheelSpinHistoryItem = {
   createdAt?: { seconds?: number };
 };
 
+export type GlobalChatMessage = {
+  id: string;
+  uid: string;
+  senderName: string;
+  senderRole: "admin" | "user";
+  text: string;
+  createdAt?: { seconds?: number };
+};
+
 export const INVESTMENT_PLANS: InvestmentPlan[] = [
   {
     id: "premium-1",
@@ -1048,4 +1057,57 @@ export async function getSupportUsers() {
   })) as SupportUser[];
 
   return data.sort((a, b) => (a.phone || "").localeCompare(b.phone || ""));
+}
+
+export async function sendGlobalChatMessage(params: {
+  uid: string;
+  text: string;
+}) {
+  const { uid, text } = params;
+
+  if (!text?.trim()) {
+    throw new Error("Escreva uma mensagem.");
+  }
+
+  const userRef = doc(db, "users", uid);
+  const userSnap = await getDoc(userRef);
+
+  if (!userSnap.exists()) {
+    throw new Error("Utilizador não encontrado.");
+  }
+
+  const userData: any = userSnap.data();
+
+  const senderRole: "admin" | "user" =
+    userData?.role === "admin" ? "admin" : "user";
+
+  const senderName =
+    senderRole === "admin" ? "Administrador" : "Número de telefone";
+
+  await addDoc(collection(db, "globalChatMessages"), {
+    uid,
+    senderName,
+    senderRole,
+    text: text.trim(),
+    createdAt: serverTimestamp(),
+  });
+}
+
+export function subscribeGlobalChatMessages(
+  callback: (messages: GlobalChatMessage[]) => void
+) {
+  const q = query(
+    collection(db, "globalChatMessages"),
+    orderBy("createdAt", "asc"),
+    limit(200)
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const data = snapshot.docs.map((item) => ({
+      id: item.id,
+      ...item.data(),
+    })) as GlobalChatMessage[];
+
+    callback(data);
+  });
 }
