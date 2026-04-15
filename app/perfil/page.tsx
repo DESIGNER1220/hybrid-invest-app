@@ -120,7 +120,7 @@ export default function PerfilPage() {
     const code = profile?.referralCode || "";
     if (!code) return "";
 
-    return `https://hybrunimoz.mom/register?ref=${code}`;
+    return `https://www.hybrunimoz.mom/register?ref=${code}`;
   }, [profile?.referralCode]);
 
   if (loading) {
