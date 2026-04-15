@@ -73,7 +73,9 @@ export default function RegisterForm({
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="mb-1 block text-sm text-slate-300">Email</label>
+          <label className="mb-1 block text-sm text-slate-300">
+            Email
+          </label>
           <input
             type="email"
             value={email}
@@ -99,7 +101,9 @@ export default function RegisterForm({
         </div>
 
         <div>
-          <label className="mb-1 block text-sm text-slate-300">Senha</label>
+          <label className="mb-1 block text-sm text-slate-300">
+            Senha
+          </label>
           <input
             type="password"
             value={password}
@@ -137,7 +141,7 @@ export default function RegisterForm({
           />
           {initialReferral && (
             <p className="mt-1 text-[11px] text-emerald-300">
-              Código de convite preenchido automaticamente.
+              Código preenchido automaticamente.
             </p>
           )}
         </div>
