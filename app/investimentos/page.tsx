@@ -23,11 +23,13 @@ const PLAN_IMAGES: Record<string, string> = {
   "premium-2": "/plans/premium-2.png",
   "premium-3": "/plans/premium-3.png",
   "premium-4": "/plans/premium-4.png",
+
   "hybr-1": "/plans/hybr-1-new.png",
   "hybr-2": "/plans/hybr-2-new.png",
   "hybr-3": "/plans/hybr-3-new.png",
   "hybr-4": "/plans/hybr-4-new.png",
   "hybr-5": "/plans/hybr-5-new.png",
+
   "alto-btc-1": "/plans/alto-btc-1.png",
   "alto-btc-2": "/plans/alto-btc-2.png",
   "alto-btc-3": "/plans/alto-btc-3.png",
@@ -149,7 +151,6 @@ export default function InvestimentosPage() {
           </div>
         </div>
 
-        {/* ALTO RENDIMENTO */}
         <section className="space-y-2">
           <div className="flex items-center gap-2">
             <span className="text-xl">🔥</span>
@@ -237,7 +238,6 @@ export default function InvestimentosPage() {
           </div>
         </section>
 
-        {/* PREMIUM */}
         {premiumPlans.length > 0 && (
           <section className="space-y-3">
             <h2 className="text-sm font-bold uppercase tracking-wide text-blue-400">
@@ -263,7 +263,7 @@ export default function InvestimentosPage() {
                       src={imageSrc}
                       alt={plan.name}
                       fill
-                      sizes="400px"
+                      sizes="(max-width: 768px) 100vw, 448px"
                       className="object-cover"
                     />
                   </div>
@@ -319,7 +319,6 @@ export default function InvestimentosPage() {
           </section>
         )}
 
-        {/* HYBR */}
         <section className="space-y-3">
           <h2 className="text-sm font-bold uppercase tracking-wide text-slate-300">
             Planos HYBR
@@ -344,7 +343,7 @@ export default function InvestimentosPage() {
                     src={imageSrc}
                     alt={plan.name}
                     fill
-                    sizes="400px"
+                    sizes="(max-width: 768px) 100vw, 448px"
                     className="object-cover"
                   />
                 </div>

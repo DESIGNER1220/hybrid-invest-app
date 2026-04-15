@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
+import { useRouter } from "next/navigation";
 import { auth } from "../lib/firebase";
 import { getUserProfile, logoutUser } from "../services/authService";
 import BottomNav from "../components/BottomNav";
@@ -26,6 +26,8 @@ export default function DashboardPage() {
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [bannerPaused, setBannerPaused] = useState(false);
+  const [showPauseNotice, setShowPauseNotice] = useState(false);
 
   async function load(uid: string) {
     const profile = await getUserProfile(uid);
@@ -35,6 +37,16 @@ export default function DashboardPage() {
   async function handleLogout() {
     await logoutUser();
     router.push("/login");
+  }
+
+  function handleBannerTap() {
+    setBannerPaused(true);
+    setShowPauseNotice(true);
+
+    setTimeout(() => {
+      setShowPauseNotice(false);
+      setBannerPaused(false);
+    }, 5000);
   }
 
   useEffect(() => {
@@ -57,16 +69,20 @@ export default function DashboardPage() {
   const balance = Number(userData?.balance ?? 0);
   const totalProfit = Number(userData?.totalProfit ?? 0);
   const bonus = Number(userData?.bonus ?? 0);
+  const isAdmin = userData?.role === "admin";
 
   const total = balance + totalProfit + bonus;
 
   if (loading) {
-    return <div className="p-4 text-white">Carregando...</div>;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black p-4 text-white">
+        Carregando...
+      </div>
+    );
   }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black px-3 pt-5 pb-24 text-white">
-
       {/* LOGOUT */}
       <button
         onClick={() => setShowLogoutConfirm(true)}
@@ -76,10 +92,31 @@ export default function DashboardPage() {
       </button>
 
       <div className="mx-auto max-w-sm space-y-4">
+        {/* BANNER DESLIZANTE */}
+        <div
+          onClick={handleBannerTap}
+          className="relative overflow-hidden rounded-xl border border-amber-500/20 bg-amber-500/10 py-2"
+        >
+          {showPauseNotice ? (
+            <div className="px-3 text-center text-[11px] font-bold text-amber-200">
+              AVISO PARAR
+            </div>
+          ) : (
+            <div
+              className={`whitespace-nowrap px-2 text-[11px] font-bold text-amber-300 ${
+                bannerPaused ? "animate-none" : "animate-marquee"
+              }`}
+            >
+              🚫 Não utilizamos grupos de WhatsApp nem Telegram — Para qualquer
+              dúvida por favor entre em contacto aqui na nossa plataforma no
+              ícone verde abaixo no lado direito — Obrigado, juntos faturamos,
+              juntos venceremos 🚀
+            </div>
+          )}
+        </div>
 
         {/* SALDO */}
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow">
-          
           <div className="rounded-xl bg-emerald-500/10 p-3 text-center">
             <p className="text-[10px] text-slate-300">Saldo total</p>
             <h2 className="text-lg font-bold text-emerald-400">
@@ -105,51 +142,107 @@ export default function DashboardPage() {
         </div>
 
         {/* BOTÕES */}
-        <div className="flex gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() => router.push("/deposito")}
-            className="flex-1 rounded-xl bg-emerald-500 py-2 text-xs font-bold text-black"
+            className="rounded-xl bg-emerald-500 py-2 text-xs font-bold text-black"
           >
             Depositar
           </button>
 
           <button
             onClick={() => router.push("/levantamento")}
-            className="flex-1 rounded-xl bg-amber-500 py-2 text-xs font-bold text-black"
+            className="rounded-xl bg-amber-500 py-2 text-xs font-bold text-black"
           >
             Levantar
           </button>
+
+          <button
+            onClick={() => router.push("/chat-global")}
+            className="rounded-xl bg-cyan-500 py-2 text-xs font-bold text-black"
+          >
+            Suporte
+          </button>
         </div>
+
+        {/* ADMIN */}
+        {isAdmin && (
+          <div className="flex justify-center">
+            <button
+              onClick={() => router.push("/admin")}
+              className="rounded-xl bg-red-500 px-4 py-2 text-xs font-bold text-white shadow-lg hover:bg-red-400"
+            >
+              Painel do Administrador
+            </button>
+          </div>
+        )}
 
         {/* IMAGENS */}
         <div className="space-y-2">
           <div className="relative h-28 w-full overflow-hidden rounded-xl">
-            <Image src="/dashboard/server.jpg" alt="" fill className="object-cover" />
+            <Image
+              src="/dashboard/server.jpg"
+              alt="Infraestrutura"
+              fill
+              sizes="(max-width: 768px) 100vw, 384px"
+              className="object-cover"
+            />
           </div>
 
           <div className="relative h-28 w-full overflow-hidden rounded-xl">
-            <Image src="/dashboard/finance.jpg" alt="" fill className="object-cover" />
+            <Image
+              src="/dashboard/finance.jpg"
+              alt="Investimento"
+              fill
+              sizes="(max-width: 768px) 100vw, 384px"
+              className="object-cover"
+            />
+          </div>
+        </div>
+
+        {/* TEXTO INFERIOR */}
+        <div className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-slate-900 p-4 text-center shadow-lg">
+          <div className="mb-2 flex items-center justify-center gap-2">
+            <span className="text-lg">🏢</span>
+            <h2 className="text-base font-bold text-amber-400">Sobre a HYBR</h2>
+          </div>
+
+          <p className="text-xs leading-relaxed text-slate-200">
+            O <span className="font-bold text-amber-400">HYBR</span> é um
+            sistema de rendimento financeiro projectado para ajudar muitos
+            Moçambicanos desde{" "}
+            <span className="font-bold text-white">1 de Abril de 2026</span>,
+            criando evolução financeira e novas oportunidades para o futuro.
+          </p>
+
+          <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
+            <p className="text-xs text-slate-300">
+              <span className="mr-1">📍</span>
+              Estamos localizados em{" "}
+              <span className="font-bold text-white">Nampula</span>, onde se
+              encontra a nossa sede.
+            </p>
           </div>
         </div>
       </div>
 
       {/* CONFIRMAR LOGOUT */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/60">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
           <div className="w-72 rounded-xl bg-slate-900 p-4 text-center">
-            <p className="text-sm mb-3">Sair da conta?</p>
+            <p className="mb-3 text-sm">Sair da conta?</p>
 
             <div className="flex gap-2">
               <button
                 onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 bg-gray-700 py-2 rounded"
+                className="flex-1 rounded bg-gray-700 py-2"
               >
                 Cancelar
               </button>
 
               <button
                 onClick={handleLogout}
-                className="flex-1 bg-red-500 py-2 rounded"
+                className="flex-1 rounded bg-red-500 py-2"
               >
                 Sair
               </button>
@@ -159,6 +252,27 @@ export default function DashboardPage() {
       )}
 
       <BottomNav />
+
+      <style jsx global>{`
+        @keyframes marquee {
+          0% {
+            transform: translateX(100%);
+          }
+          100% {
+            transform: translateX(-120%);
+          }
+        }
+
+        .animate-marquee {
+          display: inline-block;
+          min-width: max-content;
+          animation: marquee 38s linear infinite;
+        }
+
+        .animate-none {
+          animation: none !important;
+        }
+      `}</style>
     </main>
   );
 }

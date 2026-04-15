@@ -8,6 +8,7 @@ import {
   History,
   Gift,
   User,
+  MessageCircle,
 } from "lucide-react";
 
 export default function BottomNav() {
@@ -21,12 +22,12 @@ export default function BottomNav() {
     { href: "/perfil", label: "Perfil", icon: User },
   ];
 
+  const hideFloatingSupport = pathname === "/chat-global";
+
   return (
     <>
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-slate-950/95 backdrop-blur">
         <div className="relative mx-auto flex max-w-md items-center justify-between px-2 py-2">
-
-          {/* ITENS */}
           {items.map((item) => {
             const Icon = item.icon;
             const active = pathname === item.href;
@@ -47,7 +48,6 @@ export default function BottomNav() {
             );
           })}
 
-          {/* BOTÃO HYBR NO CENTRO */}
           <Link
             href="/investimentos"
             className={`absolute left-1/2 top-0 flex h-16 w-16 -translate-x-1/2 -translate-y-1/3 items-center justify-center rounded-full border-4 shadow-xl transition ${
@@ -58,17 +58,17 @@ export default function BottomNav() {
           >
             <span className="text-sm font-extrabold tracking-wide">HYBR</span>
           </Link>
-
         </div>
       </nav>
 
-      {/* BOLHA SUPORTE */}
-      <Link
-        href="/suporte"
-        className="fixed bottom-24 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.45)] transition hover:scale-105"
-      >
-        <span className="text-xl font-bold">?</span>
-      </Link>
+      {!hideFloatingSupport && (
+        <Link
+          href="/chat-global"
+          className="fixed bottom-24 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.45)] transition hover:scale-105"
+        >
+          <MessageCircle size={24} strokeWidth={2.2} />
+        </Link>
+      )}
     </>
   );
 }

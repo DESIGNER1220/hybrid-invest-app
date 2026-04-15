@@ -66,6 +66,7 @@ export type GlobalChatMessage = {
   senderName: string;
   senderRole: "admin" | "user";
   text: string;
+  imageDataUrl?: string;
   createdAt?: { seconds?: number };
 };
 
@@ -141,8 +142,6 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
     dailyRate: 2.7,
     durationDays: 90,
   },
-
-  // ALTO RENDIMENTO - MAQUINAS BITCOIN
   {
     id: "alto-btc-1",
     name: "ALTO RENDIMENTO - MAQUINA BITCOIN S9",
@@ -1061,12 +1060,16 @@ export async function getSupportUsers() {
 
 export async function sendGlobalChatMessage(params: {
   uid: string;
-  text: string;
+  text?: string;
+  imageDataUrl?: string;
 }) {
-  const { uid, text } = params;
+  const { uid, text, imageDataUrl } = params;
 
-  if (!text?.trim()) {
-    throw new Error("Escreva uma mensagem.");
+  const cleanText = text?.trim() || "";
+  const cleanImage = imageDataUrl || "";
+
+  if (!cleanText && !cleanImage) {
+    throw new Error("Escreva uma mensagem ou selecione uma imagem.");
   }
 
   const userRef = doc(db, "users", uid);
@@ -1088,7 +1091,8 @@ export async function sendGlobalChatMessage(params: {
     uid,
     senderName,
     senderRole,
-    text: text.trim(),
+    text: cleanText,
+    imageDataUrl: cleanImage,
     createdAt: serverTimestamp(),
   });
 }
