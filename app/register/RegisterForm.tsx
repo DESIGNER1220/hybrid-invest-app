@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { registerUser } from "../services/authService";
 
 type RegisterFormProps = {
-  initialReferral?: string | null;
+  initialReferral?: string;
 };
 
 export default function RegisterForm({
@@ -18,32 +18,40 @@ export default function RegisterForm({
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [referral, setReferral] = useState(initialReferral || "");
+  const [refCode, setRefCode] = useState("");
   const [loading, setLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
-  async function handleRegister(e: React.FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    if (initialReferral) {
+      setRefCode(initialReferral);
+    }
+  }, [initialReferral]);
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     try {
       setLoading(true);
-      setSuccessMessage("");
+      setErrorMsg("");
+      setSuccessMsg("");
 
       await registerUser({
         email,
         phone,
         password,
         confirmPassword,
-        refCode: referral || null,
+        refCode: refCode.trim() || null,
       });
 
-      setSuccessMessage("Sucesso");
+      setSuccessMsg("Conta criada com sucesso");
 
       setTimeout(() => {
-        router.push("/login");
+        router.push("/dashboard");
       }, 1500);
     } catch (error: any) {
-      alert(error?.message || "Erro ao criar conta");
+      setErrorMsg(error?.message || "Erro ao criar conta.");
     } finally {
       setLoading(false);
     }
@@ -51,82 +59,93 @@ export default function RegisterForm({
 
   return (
     <>
-      {successMessage && (
-        <div className="mb-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
-          <p className="text-lg font-bold text-emerald-400">{successMessage}</p>
+      {successMsg && (
+        <div className="mb-4 rounded-xl border border-emerald-400 bg-emerald-500/20 px-3 py-2 text-center text-sm font-bold text-emerald-300">
+          {successMsg}
         </div>
       )}
 
-      <form onSubmit={handleRegister} className="space-y-4">
+      {errorMsg && (
+        <div className="mb-4 rounded-xl border border-red-400 bg-red-500/20 px-3 py-2 text-center text-sm text-red-300">
+          {errorMsg}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="mb-2 block text-sm text-slate-200">Email</label>
+          <label className="mb-1 block text-sm text-slate-300">Email</label>
           <input
             type="email"
-            placeholder="seuemail@gmail.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            placeholder="Seu email"
+            className="w-full rounded-xl bg-white px-4 py-3 text-base text-black outline-none"
             required
-            className="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-amber-400"
           />
         </div>
 
         <div>
-          <label className="mb-2 block text-sm text-slate-200">
+          <label className="mb-1 block text-sm text-slate-300">
             Número de telefone
           </label>
           <input
-            type="text"
-            placeholder="Ex: 840000000"
+            type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
+            placeholder="Número de telefone"
+            className="w-full rounded-xl bg-white px-4 py-3 text-base text-black outline-none"
             required
-            className="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-amber-400"
           />
         </div>
 
         <div>
-          <label className="mb-2 block text-sm text-slate-200">Senha</label>
+          <label className="mb-1 block text-sm text-slate-300">Senha</label>
           <input
             type="password"
-            placeholder="Crie uma senha"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            placeholder="Sua senha"
+            className="w-full rounded-xl bg-white px-4 py-3 text-base text-black outline-none"
             required
-            className="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-amber-400"
           />
         </div>
 
         <div>
-          <label className="mb-2 block text-sm text-slate-200">
+          <label className="mb-1 block text-sm text-slate-300">
             Confirmar senha
           </label>
           <input
             type="password"
-            placeholder="Confirme a senha"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Confirme a senha"
+            className="w-full rounded-xl bg-white px-4 py-3 text-base text-black outline-none"
             required
-            className="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-amber-400"
           />
         </div>
 
         <div>
-          <label className="mb-2 block text-sm text-slate-200">
-            Código de convite
+          <label className="mb-1 block text-sm text-slate-300">
+            Código de referência
           </label>
           <input
             type="text"
-            placeholder="Opcional"
-            value={referral}
-            onChange={(e) => setReferral(e.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-amber-400"
+            value={refCode}
+            onChange={(e) => setRefCode(e.target.value.toUpperCase())}
+            placeholder="Código de referência"
+            className="w-full rounded-xl bg-white px-4 py-3 text-base text-black outline-none"
           />
+          {initialReferral && (
+            <p className="mt-1 text-[11px] text-emerald-300">
+              Código de convite preenchido automaticamente.
+            </p>
+          )}
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-2xl bg-amber-500 px-4 py-3 font-semibold text-slate-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-70"
+          className="w-full rounded-xl bg-amber-400 py-3 text-lg font-bold text-black transition hover:bg-amber-300 disabled:opacity-70"
         >
           {loading ? "Criando..." : "Criar conta"}
         </button>
@@ -134,11 +153,8 @@ export default function RegisterForm({
 
       <p className="mt-5 text-center text-sm text-slate-300">
         Já tem conta?{" "}
-        <Link
-          href="/login"
-          className="font-semibold text-amber-400 hover:text-amber-300"
-        >
-          Fazer login
+        <Link href="/login" className="font-bold text-amber-400">
+          Entrar
         </Link>
       </p>
     </>
