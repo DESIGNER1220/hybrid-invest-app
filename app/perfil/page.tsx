@@ -1,256 +1,393 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
+import { useRouter } from "next/navigation";
+import {
+  Clock3,
+  Gift,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  History,
+  Trophy,
+  Copy,
+  Check,
+  Link2,
+} from "lucide-react";
 import { auth } from "../lib/firebase";
 import {
+  getTodayHistory,
   getUserProfile,
   logoutUser,
-  getReferralEarnings,
 } from "../services/authService";
 import BottomNav from "../components/BottomNav";
 
 type UserProfile = {
   phone?: string;
-  referralCode?: string;
+  email?: string;
+  balance?: number;
   bonus?: number;
+  totalProfit?: number;
+  referralCode?: string;
+  referrals?: number;
+  role?: string;
 };
 
-type ReferralEarning = {
+type HistoryItem = {
   id: string;
+  sourceType: "transaction" | "referral" | "wheel";
+  type?: string;
+  method?: string;
+  amount?: number;
+  status?: string;
   commissionAmount?: number;
   depositAmount?: number;
+  reward?: number;
+  label?: string;
   createdAt?: { seconds?: number };
 };
 
-function formatDate(timestamp?: { seconds?: number }) {
-  if (!timestamp?.seconds) return "Data indisponível";
+function formatMoney(value: number) {
+  return Number(value || 0).toLocaleString("pt-MZ");
+}
 
-  return new Date(timestamp.seconds * 1000).toLocaleDateString("pt-MZ", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
+function formatTime(timestamp?: { seconds?: number }) {
+  if (!timestamp?.seconds) return "--:--";
+
+  return new Date(timestamp.seconds * 1000).toLocaleTimeString("pt-MZ", {
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
 export default function PerfilPage() {
   const router = useRouter();
+
   const [loading, setLoading] = useState(true);
-  const [copiedLink, setCopiedLink] = useState(false);
-  const [copiedCode, setCopiedCode] = useState(false);
-  const [userData, setUserData] = useState<UserProfile | null>(null);
-  const [earnings, setEarnings] = useState<ReferralEarning[]>([]);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [copiedField, setCopiedField] = useState<"" | "code" | "link">("");
 
   async function loadAll(uid: string) {
-    const [profile, earningsData] = await Promise.all([
+    const [profileData, todayHistory] = await Promise.all([
       getUserProfile(uid),
-      getReferralEarnings(uid),
+      getTodayHistory(uid),
     ]);
 
-    setUserData((profile as UserProfile) || null);
-    setEarnings((earningsData as ReferralEarning[]) || []);
+    setProfile((profileData || null) as UserProfile | null);
+    setHistory((todayHistory || []) as HistoryItem[]);
+  }
+
+  async function handleLogout() {
+    await logoutUser();
+    router.push("/login");
+  }
+
+  async function copyText(value: string, field: "code" | "link") {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedField(field);
+
+      setTimeout(() => {
+        setCopiedField("");
+      }, 2000);
+    } catch (error) {
+      console.error("Erro ao copiar:", error);
+      alert("Não foi possível copiar.");
+    }
   }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (!currentUser) {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
         router.push("/login");
         return;
       }
 
       try {
-        await loadAll(currentUser.uid);
+        await loadAll(user.uid);
       } catch (error) {
         console.error("Erro ao carregar perfil:", error);
-        alert("Erro ao carregar os dados do perfil.");
       } finally {
         setLoading(false);
       }
     });
 
-    return () => unsubscribe();
+    return () => unsub();
   }, [router]);
 
-  const phone = userData?.phone || "Não disponível";
-  const referralCode = userData?.referralCode || "Sem código";
-  const bonus = Number(userData?.bonus ?? 0);
-
   const inviteLink = useMemo(() => {
-    if (!referralCode || referralCode === "Sem código") return "";
-    return `https://www.hybrunimoz.mom/register?ref=${referralCode}`;
-  }, [referralCode]);
+    const code = profile?.referralCode || "";
+    if (!code) return "";
 
-  const totalReferralEarnings = useMemo(() => {
-    return earnings.reduce(
-      (sum, item) => sum + Number(item.commissionAmount ?? 0),
-      0
-    );
-  }, [earnings]);
-
-  async function handleCopyLink() {
-    if (!inviteLink) {
-      alert("Link indisponível.");
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(inviteLink);
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2000);
-    } catch (error) {
-      console.error("Erro ao copiar link:", error);
-      alert("Não foi possível copiar o link.");
-    }
-  }
-
-  async function handleCopyCode() {
-    if (!referralCode || referralCode === "Sem código") {
-      alert("Código indisponível.");
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(referralCode);
-      setCopiedCode(true);
-      setTimeout(() => setCopiedCode(false), 2000);
-    } catch (error) {
-      console.error("Erro ao copiar código:", error);
-      alert("Não foi possível copiar o código.");
-    }
-  }
-
-  async function handleLogout() {
-    try {
-      await logoutUser();
-      router.push("/login");
-    } catch (error) {
-      console.error("Erro ao terminar sessão:", error);
-      alert("Não foi possível terminar sessão.");
-    }
-  }
+    return `https://hybrunimoz.mom/register?ref=${code}`;
+  }, [profile?.referralCode]);
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 p-4 text-white">
-        <p>Carregando perfil...</p>
+      <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black p-4 text-white">
+        Carregando...
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-3 pb-24 pt-3 text-white">
-      <div className="mx-auto max-w-md space-y-3">
-        <div>
-          <h1 className="text-xl font-bold">Perfil</h1>
+    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black px-3 pt-3 pb-24 text-white">
+      <div className="mx-auto max-w-sm space-y-3">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg">
+          <h1 className="text-lg font-bold">Perfil</h1>
           <p className="mt-1 text-xs text-slate-400">
-            Veja as informações da sua conta.
+            Dados da conta, convite e histórico das últimas 24 horas.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-lg">
-            <p className="text-[11px] text-slate-400">Telefone</p>
-            <h3 className="mt-1 text-sm font-bold text-white">{phone}</h3>
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg">
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-400">Telefone</span>
+              <span className="font-semibold text-white">
+                {profile?.phone || "—"}
+              </span>
+            </div>
+
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-400">Email</span>
+              <span className="truncate font-semibold text-white">
+                {profile?.email || "—"}
+              </span>
+            </div>
+
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-400">Saldo</span>
+              <span className="font-semibold text-emerald-400">
+                {formatMoney(profile?.balance ?? 0)} MZN
+              </span>
+            </div>
+
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-400">Lucro</span>
+              <span className="font-semibold text-cyan-400">
+                {formatMoney(profile?.totalProfit ?? 0)} MZN
+              </span>
+            </div>
+
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-400">Bónus</span>
+              <span className="font-semibold text-amber-300">
+                {formatMoney(profile?.bonus ?? 0)} MZN
+              </span>
+            </div>
+
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-400">Convidados</span>
+              <span className="font-semibold text-white">
+                {Number(profile?.referrals ?? 0)}
+              </span>
+            </div>
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-lg">
-            <p className="text-[11px] text-slate-400">Código de referência</p>
-            <h3 className="mt-1 break-all text-sm font-bold text-amber-400">
-              {referralCode}
-            </h3>
-          </div>
+          <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3">
+            <div className="mb-2 flex items-center gap-2">
+              <Gift size={15} className="text-amber-300" />
+              <h2 className="text-sm font-bold text-amber-300">
+                Convide amigos
+              </h2>
+            </div>
 
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-lg">
-            <p className="text-[11px] text-slate-400">Bónus acumulado</p>
-            <h3 className="mt-1 text-base font-bold text-emerald-400">
-              {bonus.toLocaleString("pt-MZ")} MZN
-            </h3>
-          </div>
-
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-lg">
-            <p className="text-[11px] text-slate-400">Ganhos por afiliados</p>
-            <h3 className="mt-1 text-base font-bold text-cyan-400">
-              {totalReferralEarnings.toLocaleString("pt-MZ")} MZN
-            </h3>
-          </div>
-        </div>
-
-        <button
-          onClick={() => router.push("/bonus")}
-          className="w-full rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-black transition hover:bg-amber-400"
-        >
-          Bónus
-        </button>
-
-        <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-lg">
-          <h2 className="text-sm font-semibold text-white">Seu link de convite</h2>
-
-          <div className="mt-3 rounded-lg border border-white/10 bg-slate-950/40 p-3">
-            <p className="break-all text-xs text-slate-300">
-              {inviteLink || "Link indisponível"}
-            </p>
-          </div>
-
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <button
-              onClick={handleCopyLink}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500"
-            >
-              {copiedLink ? "Link copiado!" : "Copiar link"}
-            </button>
-
-            <button
-              onClick={handleCopyCode}
-              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-600"
-            >
-              {copiedCode ? "Código copiado!" : "Copiar código"}
-            </button>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-lg">
-          <h2 className="text-sm font-semibold text-white">
-            Histórico de ganhos por afiliados
-          </h2>
-
-          {earnings.length === 0 ? (
-            <p className="mt-3 text-xs text-slate-400">
-              Ainda não existem ganhos registados.
-            </p>
-          ) : (
-            <div className="mt-3 space-y-2">
-              {earnings.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-lg border border-white/10 bg-slate-950/40 p-3"
-                >
-                  <p className="text-xs text-slate-300">Comissão recebida</p>
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    Depósito base:{" "}
-                    {Number(item.depositAmount ?? 0).toLocaleString("pt-MZ")}{" "}
-                    MZN
-                  </p>
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    {formatDate(item.createdAt)}
-                  </p>
-                  <p className="mt-2 text-sm font-bold text-emerald-400">
-                    +
-                    {Number(item.commissionAmount ?? 0).toLocaleString("pt-MZ")}{" "}
-                    MZN
-                  </p>
+            <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+              <p className="text-[11px] text-slate-400">Código de convite</p>
+              <div className="mt-2 flex items-center gap-2">
+                <div className="flex-1 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white">
+                  {profile?.referralCode || "—"}
                 </div>
-              ))}
+
+                <button
+                  onClick={() =>
+                    profile?.referralCode &&
+                    copyText(profile.referralCode, "code")
+                  }
+                  className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500 text-black transition hover:bg-amber-400"
+                >
+                  {copiedField === "code" ? (
+                    <Check size={16} />
+                  ) : (
+                    <Copy size={16} />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3">
+              <div className="mb-2 flex items-center gap-2">
+                <Link2 size={14} className="text-cyan-400" />
+                <p className="text-[11px] text-slate-400">Link de convite</p>
+              </div>
+
+              <div className="rounded-lg bg-slate-900 px-3 py-2 text-[11px] text-white break-all">
+                {inviteLink || "—"}
+              </div>
+
+              <button
+                onClick={() => inviteLink && copyText(inviteLink, "link")}
+                className="mt-3 w-full rounded-lg bg-cyan-500 py-2 text-xs font-bold text-black transition hover:bg-cyan-400"
+              >
+                {copiedField === "link" ? "Link copiado" : "Copiar link"}
+              </button>
+            </div>
+          </div>
+
+          <button
+            onClick={handleLogout}
+            className="mt-4 w-full rounded-xl bg-red-500 py-3 text-sm font-bold text-white transition hover:bg-red-400"
+          >
+            Terminar sessão
+          </button>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg">
+          <div className="mb-3 flex items-center gap-2">
+            <History size={16} className="text-amber-300" />
+            <h2 className="text-sm font-bold text-white">
+              Histórico de Hoje
+            </h2>
+          </div>
+
+          <p className="mb-3 text-[11px] text-slate-400">
+            Mostra só os movimentos das últimas 24 horas.
+          </p>
+
+          {history.length === 0 ? (
+            <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-center text-xs text-slate-400">
+              Ainda não há movimentos nas últimas 24 horas.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {history.map((item) => {
+                if (item.sourceType === "transaction") {
+                  const isDeposit = item.type === "deposito";
+                  const isWithdraw = item.type === "levantamento";
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="rounded-xl border border-white/10 bg-black/20 p-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-2">
+                          {isDeposit ? (
+                            <ArrowDownCircle
+                              size={16}
+                              className="mt-0.5 text-emerald-400"
+                            />
+                          ) : (
+                            <ArrowUpCircle
+                              size={16}
+                              className="mt-0.5 text-red-400"
+                            />
+                          )}
+
+                          <div>
+                            <p className="text-xs font-bold text-white">
+                              {isDeposit ? "Depósito" : "Levantamento"}
+                            </p>
+                            <p className="text-[10px] text-slate-400">
+                              {item.method || "Método"} • {item.status || "—"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <p
+                            className={`text-xs font-bold ${
+                              isDeposit ? "text-emerald-400" : "text-red-400"
+                            }`}
+                          >
+                            {isDeposit ? "+" : "-"}
+                            {formatMoney(item.amount ?? 0)} MZN
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            {formatTime(item.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (item.sourceType === "referral") {
+                  return (
+                    <div
+                      key={item.id}
+                      className="rounded-xl border border-white/10 bg-black/20 p-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-2">
+                          <Gift size={16} className="mt-0.5 text-amber-300" />
+
+                          <div>
+                            <p className="text-xs font-bold text-white">
+                              Bónus de Afiliado
+                            </p>
+                            <p className="text-[10px] text-slate-400">
+                              Comissão sobre depósito
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-xs font-bold text-amber-300">
+                            +{formatMoney(item.commissionAmount ?? 0)} MZN
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            {formatTime(item.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={item.id}
+                    className="rounded-xl border border-white/10 bg-black/20 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-2">
+                        <Trophy size={16} className="mt-0.5 text-cyan-400" />
+
+                        <div>
+                          <p className="text-xs font-bold text-white">
+                            Sorteio / Roda
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            {item.label || "Recompensa"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-xs font-bold text-cyan-400">
+                          +{formatMoney(item.reward ?? 0)} MZN
+                        </p>
+                        <p className="text-[10px] text-slate-400">
+                          {formatTime(item.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
-        </div>
 
-        <button
-          onClick={handleLogout}
-          className="w-full rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500/20"
-        >
-          Terminar sessão
-        </button>
+          <div className="mt-3 flex items-center gap-2 text-[10px] text-slate-500">
+            <Clock3 size={12} />
+            <span>
+              O histórico mostra apenas os movimentos recentes de 24 horas.
+            </span>
+          </div>
+        </div>
       </div>
 
       <BottomNav />

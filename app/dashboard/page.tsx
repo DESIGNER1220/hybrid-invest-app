@@ -83,7 +83,6 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black px-3 pt-5 pb-24 text-white">
-      {/* LOGOUT */}
       <button
         onClick={() => setShowLogoutConfirm(true)}
         className="fixed top-4 right-4 z-50 rounded-full bg-red-500/20 p-2 text-red-400 shadow"
@@ -92,7 +91,6 @@ export default function DashboardPage() {
       </button>
 
       <div className="mx-auto max-w-sm space-y-4">
-        {/* BANNER DESLIZANTE */}
         <div
           onClick={handleBannerTap}
           className="relative overflow-hidden rounded-xl border border-amber-500/20 bg-amber-500/10 py-2"
@@ -115,7 +113,6 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* SALDO */}
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow">
           <div className="rounded-xl bg-emerald-500/10 p-3 text-center">
             <p className="text-[10px] text-slate-300">Saldo total</p>
@@ -141,7 +138,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* BOTÕES */}
         <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() => router.push("/deposito")}
@@ -165,7 +161,6 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* ADMIN */}
         {isAdmin && (
           <div className="flex justify-center">
             <button
@@ -177,7 +172,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* IMAGENS */}
         <div className="space-y-2">
           <div className="relative h-28 w-full overflow-hidden rounded-xl">
             <Image
@@ -200,7 +194,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* TEXTO INFERIOR */}
         <div className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-slate-900 p-4 text-center shadow-lg">
           <div className="mb-2 flex items-center justify-center gap-2">
             <span className="text-lg">🏢</span>
@@ -226,7 +219,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* CONFIRMAR LOGOUT */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
           <div className="w-72 rounded-xl bg-slate-900 p-4 text-center">

@@ -279,7 +279,9 @@ function getTodayKey() {
   return `${y}-${m}-${d}`;
 }
 
-function chooseWeightedReward(options: Array<{ reward: number; weight: number }>) {
+function chooseWeightedReward(
+  options: Array<{ reward: number; weight: number }>
+) {
   const total = options.reduce((sum, item) => sum + item.weight, 0);
   let random = Math.random() * total;
 
@@ -746,7 +748,10 @@ export async function buyInvestmentPlan(params: {
     ),
     finalReturn:
       plan.finalReturn ??
-      round2(plan.amount + plan.amount * (plan.dailyRate / 100) * plan.durationDays),
+      round2(
+        plan.amount +
+          plan.amount * (plan.dailyRate / 100) * plan.durationDays
+      ),
     isPremium: !!plan.isPremium,
     status: "ativo",
     createdAt: serverTimestamp(),
@@ -1114,4 +1119,48 @@ export function subscribeGlobalChatMessages(
 
     callback(data);
   });
+}
+
+export async function getTodayHistory(uid: string) {
+  const now = Date.now();
+  const last24hMs = now - 24 * 60 * 60 * 1000;
+
+  const [transactionsSnap, referralSnap, wheelSnap] = await Promise.all([
+    getDocs(query(collection(db, "transactions"), where("uid", "==", uid))),
+    getDocs(
+      query(collection(db, "referralEarnings"), where("referrerId", "==", uid))
+    ),
+    getDocs(query(collection(db, "wheelSpins"), where("uid", "==", uid))),
+  ]);
+
+  const transactions = transactionsSnap.docs.map((item) => ({
+    id: item.id,
+    sourceType: "transaction" as const,
+    ...item.data(),
+  }));
+
+  const referralEarnings = referralSnap.docs.map((item) => ({
+    id: item.id,
+    sourceType: "referral" as const,
+    ...item.data(),
+  }));
+
+  const wheelSpins = wheelSnap.docs.map((item) => ({
+    id: item.id,
+    sourceType: "wheel" as const,
+    ...item.data(),
+  }));
+
+  const merged = [...transactions, ...referralEarnings, ...wheelSpins];
+
+  return merged
+    .filter((item: any) => {
+      const createdAtMs = Number(item.createdAt?.seconds ?? 0) * 1000;
+      return createdAtMs >= last24hMs;
+    })
+    .sort((a: any, b: any) => {
+      const aSec = Number(a.createdAt?.seconds ?? 0);
+      const bSec = Number(b.createdAt?.seconds ?? 0);
+      return bSec - aSec;
+    });
 }
