@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import {
   Home,
   CircleDollarSign,
-  History,
   Gift,
   User,
   MessageCircle,
@@ -17,7 +16,6 @@ export default function BottomNav() {
   const items = [
     { href: "/dashboard", label: "Início", icon: Home },
     { href: "/ativos", label: "Ativos", icon: CircleDollarSign },
-    { href: "/historico", label: "Histórico", icon: History },
     { href: "/roda", label: "Roda", icon: Gift },
     { href: "/perfil", label: "Perfil", icon: User },
   ];

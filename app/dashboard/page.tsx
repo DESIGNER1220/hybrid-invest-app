@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { auth } from "../lib/firebase";
 import { getUserProfile, logoutUser } from "../services/authService";
 import BottomNav from "../components/BottomNav";
+import InstallAppButton from "../components/InstallAppButton";
 import { LogOut } from "lucide-react";
 
 type UserProfile = {
@@ -112,6 +113,8 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+
+        <InstallAppButton />
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow">
           <div className="rounded-xl bg-emerald-500/10 p-3 text-center">
