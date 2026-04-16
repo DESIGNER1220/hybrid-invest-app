@@ -4,11 +4,11 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
+import { LogOut } from "lucide-react";
 import { auth } from "../lib/firebase";
 import { getUserProfile, logoutUser } from "../services/authService";
 import BottomNav from "../components/BottomNav";
 import DownloadAppButton from "../components/DownloadAppButton";
-import { LogOut } from "lucide-react";
 
 type UserProfile = {
   balance?: number;
@@ -71,7 +71,6 @@ export default function DashboardPage() {
   const totalProfit = Number(userData?.totalProfit ?? 0);
   const bonus = Number(userData?.bonus ?? 0);
   const isAdmin = userData?.role === "admin";
-
   const total = balance + totalProfit + bonus;
 
   if (loading) {
@@ -85,6 +84,7 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black px-3 pt-5 pb-24 text-white">
       <button
+        type="button"
         onClick={() => setShowLogoutConfirm(true)}
         className="fixed top-4 right-4 z-50 rounded-full bg-red-500/20 p-2 text-red-400 shadow"
       >
@@ -114,7 +114,13 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <DownloadAppButton />
+        <a
+  href="/app/hybrid-invest.apk"
+  download="Hybrid-Invest.apk"
+  className="flex w-full items-center justify-center gap-3 rounded-2xl bg-amber-400 px-4 py-4 text-base font-bold text-black transition hover:bg-amber-300 active:scale-[0.99]"
+>
+  Instalar App
+</a>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow">
           <div className="rounded-xl bg-emerald-500/10 p-3 text-center">
@@ -143,6 +149,7 @@ export default function DashboardPage() {
 
         <div className="grid grid-cols-3 gap-2">
           <button
+            type="button"
             onClick={() => router.push("/deposito")}
             className="rounded-xl bg-emerald-500 py-2 text-xs font-bold text-black"
           >
@@ -150,6 +157,7 @@ export default function DashboardPage() {
           </button>
 
           <button
+            type="button"
             onClick={() => router.push("/levantamento")}
             className="rounded-xl bg-amber-500 py-2 text-xs font-bold text-black"
           >
@@ -157,6 +165,7 @@ export default function DashboardPage() {
           </button>
 
           <button
+            type="button"
             onClick={() => router.push("/chat-global")}
             className="rounded-xl bg-cyan-500 py-2 text-xs font-bold text-black"
           >
@@ -167,6 +176,7 @@ export default function DashboardPage() {
         {isAdmin && (
           <div className="flex justify-center">
             <button
+              type="button"
               onClick={() => router.push("/admin")}
               className="rounded-xl bg-red-500 px-4 py-2 text-xs font-bold text-white shadow-lg hover:bg-red-400"
             >
@@ -205,6 +215,7 @@ export default function DashboardPage() {
 
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={() => setShowLogoutConfirm(false)}
                 className="flex-1 rounded bg-gray-700 py-2"
               >
@@ -212,6 +223,7 @@ export default function DashboardPage() {
               </button>
 
               <button
+                type="button"
                 onClick={handleLogout}
                 className="flex-1 rounded bg-red-500 py-2"
               >
