@@ -114,13 +114,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <a
-  href="/app/hybrid-invest.apk"
-  download="Hybrid-Invest.apk"
-  className="flex w-full items-center justify-center gap-3 rounded-2xl bg-amber-400 px-4 py-4 text-base font-bold text-black transition hover:bg-amber-300 active:scale-[0.99]"
->
-  Instalar App
-</a>
+        <DownloadAppButton className="mb-4" />
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow">
           <div className="rounded-xl bg-emerald-500/10 p-3 text-center">
