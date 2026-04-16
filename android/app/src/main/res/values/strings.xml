@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">HYBRID </string>
+    <string name="title_activity_main">HYBRID </string>
+    <string name="package_name">com.hybridinvest.app</string>
+    <string name="custom_url_scheme">com.hybridinvest.app</string>
+</resources>

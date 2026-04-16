@@ -2,17 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { registerUser } from "../services/authService";
 
-type RegisterFormProps = {
-  initialReferral?: string;
-};
-
-export default function RegisterForm({
-  initialReferral = "",
-}: RegisterFormProps) {
+export default function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -23,11 +18,14 @@ export default function RegisterForm({
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
+  // 🔥 AQUI É O SEGREDO
   useEffect(() => {
-    if (initialReferral) {
-      setRefCode(initialReferral);
+    const ref = searchParams.get("ref");
+
+    if (ref) {
+      setRefCode(ref.toUpperCase());
     }
-  }, [initialReferral]);
+  }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -57,6 +55,8 @@ export default function RegisterForm({
     }
   }
 
+  const autoFilled = !!searchParams.get("ref");
+
   return (
     <>
       {successMsg && (
@@ -81,7 +81,7 @@ export default function RegisterForm({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Seu email"
-            className="w-full rounded-xl bg-white px-4 py-3 text-base text-black outline-none"
+            className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
             required
           />
         </div>
@@ -95,7 +95,7 @@ export default function RegisterForm({
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="Número de telefone"
-            className="w-full rounded-xl bg-white px-4 py-3 text-base text-black outline-none"
+            className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
             required
           />
         </div>
@@ -109,7 +109,7 @@ export default function RegisterForm({
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Sua senha"
-            className="w-full rounded-xl bg-white px-4 py-3 text-base text-black outline-none"
+            className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
             required
           />
         </div>
@@ -123,11 +123,12 @@ export default function RegisterForm({
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             placeholder="Confirme a senha"
-            className="w-full rounded-xl bg-white px-4 py-3 text-base text-black outline-none"
+            className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
             required
           />
         </div>
 
+        {/* 🔥 CAMPO DE REFERÊNCIA */}
         <div>
           <label className="mb-1 block text-sm text-slate-300">
             Código de referência
@@ -137,11 +138,12 @@ export default function RegisterForm({
             value={refCode}
             onChange={(e) => setRefCode(e.target.value.toUpperCase())}
             placeholder="Código de referência"
-            className="w-full rounded-xl bg-white px-4 py-3 text-base text-black outline-none"
+            className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
           />
-          {initialReferral && (
-            <p className="mt-1 text-[11px] text-emerald-300">
-              Código preenchido automaticamente.
+
+          {autoFilled && (
+            <p className="mt-1 text-xs font-semibold text-emerald-400">
+              Código preenchido automaticamente
             </p>
           )}
         </div>

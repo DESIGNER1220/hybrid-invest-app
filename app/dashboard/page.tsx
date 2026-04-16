@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { auth } from "../lib/firebase";
 import { getUserProfile, logoutUser } from "../services/authService";
 import BottomNav from "../components/BottomNav";
-import InstallAppButton from "../components/InstallAppButton";
+import DownloadAppButton from "../components/DownloadAppButton";
 import { LogOut } from "lucide-react";
 
 type UserProfile = {
@@ -114,7 +114,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <InstallAppButton />
+        <DownloadAppButton />
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow">
           <div className="rounded-xl bg-emerald-500/10 p-3 text-center">
@@ -194,30 +194,6 @@ export default function DashboardPage() {
               sizes="(max-width: 768px) 100vw, 384px"
               className="object-cover"
             />
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-slate-900 p-4 text-center shadow-lg">
-          <div className="mb-2 flex items-center justify-center gap-2">
-            <span className="text-lg">🏢</span>
-            <h2 className="text-base font-bold text-amber-400">Sobre a HYBR</h2>
-          </div>
-
-          <p className="text-xs leading-relaxed text-slate-200">
-            O <span className="font-bold text-amber-400">HYBR</span> é um
-            sistema de rendimento financeiro projectado para ajudar muitos
-            Moçambicanos desde{" "}
-            <span className="font-bold text-white">1 de Abril de 2026</span>,
-            criando evolução financeira e novas oportunidades para o futuro.
-          </p>
-
-          <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
-            <p className="text-xs text-slate-300">
-              <span className="mr-1">📍</span>
-              Estamos localizados em{" "}
-              <span className="font-bold text-white">Nampula</span>, onde se
-              encontra a nossa sede.
-            </p>
           </div>
         </div>
       </div>

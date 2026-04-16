@@ -83,9 +83,18 @@ export default function PerfilPage() {
     router.push("/login");
   }
 
-  async function copyText(value: string, field: "code" | "link") {
+  async function copyText(
+    e: React.MouseEvent<HTMLButtonElement>,
+    value: string,
+    field: "code" | "link"
+  ) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!value.trim()) return;
+
     try {
-      await navigator.clipboard.writeText(value);
+      await navigator.clipboard.writeText(value.trim());
       setCopiedField(field);
 
       setTimeout(() => {
@@ -116,12 +125,14 @@ export default function PerfilPage() {
     return () => unsub();
   }, [router]);
 
-  const inviteLink = useMemo(() => {
-    const code = profile?.referralCode || "";
-    if (!code) return "";
-
-    return `https://www.hybrunimoz.mom/register?ref=${code}`;
+  const inviteCode = useMemo(() => {
+    return (profile?.referralCode || "").trim().toUpperCase();
   }, [profile?.referralCode]);
+
+  const inviteLink = useMemo(() => {
+    if (!inviteCode) return "";
+    return `https://www.hybrunimoz.mom/register?ref=${inviteCode}`;
+  }, [inviteCode]);
 
   if (loading) {
     return (
@@ -196,17 +207,20 @@ export default function PerfilPage() {
 
             <div className="rounded-lg border border-white/10 bg-black/20 p-3">
               <p className="text-[11px] text-slate-400">Código de convite</p>
+
               <div className="mt-2 flex items-center gap-2">
-                <div className="flex-1 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white">
-                  {profile?.referralCode || "—"}
-                </div>
+                <input
+                  type="text"
+                  readOnly
+                  value={inviteCode}
+                  className="flex-1 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white outline-none"
+                />
 
                 <button
-                  onClick={() =>
-                    profile?.referralCode &&
-                    copyText(profile.referralCode, "code")
-                  }
+                  type="button"
+                  onClick={(e) => copyText(e, inviteCode, "code")}
                   className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500 text-black transition hover:bg-amber-400"
+                  aria-label="Copiar código"
                 >
                   {copiedField === "code" ? (
                     <Check size={16} />
@@ -223,12 +237,16 @@ export default function PerfilPage() {
                 <p className="text-[11px] text-slate-400">Link de convite</p>
               </div>
 
-              <div className="rounded-lg bg-slate-900 px-3 py-2 text-[11px] text-white break-all">
-                {inviteLink || "—"}
-              </div>
+              <textarea
+                readOnly
+                value={inviteLink}
+                rows={3}
+                className="w-full resize-none rounded-lg bg-slate-900 px-3 py-2 text-[11px] text-white outline-none"
+              />
 
               <button
-                onClick={() => inviteLink && copyText(inviteLink, "link")}
+                type="button"
+                onClick={(e) => copyText(e, inviteLink, "link")}
                 className="mt-3 w-full rounded-lg bg-cyan-500 py-2 text-xs font-bold text-black transition hover:bg-cyan-400"
               >
                 {copiedField === "link" ? "Link copiado" : "Copiar link"}
@@ -237,6 +255,7 @@ export default function PerfilPage() {
           </div>
 
           <button
+            type="button"
             onClick={handleLogout}
             className="mt-4 w-full rounded-xl bg-red-500 py-3 text-sm font-bold text-white transition hover:bg-red-400"
           >
