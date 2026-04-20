@@ -108,7 +108,7 @@ export default function DashboardPage() {
             >
               🚫 Não utilizamos grupos de WhatsApp nem Telegram — Para qualquer
               dúvida por favor entre em contacto aqui na nossa plataforma no
-              ícone verde abaixo no lado direito — Obrigado, juntos faturamos,
+              ícone verde abaixo no lado direito prestar atenciosamente — Obrigado, juntos faturamos,
               juntos venceremos 🚀
             </div>
           )}
