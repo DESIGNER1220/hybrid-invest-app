@@ -1,159 +1,261 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
+import { useRouter } from "next/navigation";
+import {
+  ArrowDownCircle,
+  Copy,
+  Check,
+} from "lucide-react";
+
 import { auth } from "../lib/firebase";
 import { createTransaction, getUserProfile } from "../services/authService";
 import BottomNav from "../components/BottomNav";
 
+type UserProfile = {
+  balance?: number;
+  bonus?: number;
+  totalProfit?: number;
+};
+
+function formatMoney(value: number) {
+  return Number(value || 0).toLocaleString("pt-MZ");
+}
+
 export default function DepositoPage() {
   const router = useRouter();
-  const [uid, setUid] = useState("");
-  const [userPhone, setUserPhone] = useState("");
+
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  const [method, setMethod] = useState<"M-Pesa" | "E-mola">("M-Pesa");
+  const [phone, setPhone] = useState("");
   const [amount, setAmount] = useState("");
   const [transactionCode, setTransactionCode] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [footerError, setFooterError] = useState("");
+
+  const [copied, setCopied] = useState<"" | "mpesa" | "emola">("");
+
+  const [successMsg, setSuccessMsg] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  async function loadProfile(uid: string) {
+    const data = await getUserProfile(uid);
+    setProfile((data || null) as UserProfile | null);
+  }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         router.push("/login");
         return;
       }
 
-      setUid(user.uid);
-      const profile: any = await getUserProfile(user.uid);
-      setUserPhone(profile?.phone || "");
+      try {
+        await loadProfile(user.uid);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
     });
 
-    return () => unsubscribe();
+    return () => unsub();
   }, [router]);
+
+  async function handleCopy(value: string, type: "mpesa" | "emola") {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(type);
+
+      setTimeout(() => {
+        setCopied("");
+      }, 2000);
+    } catch {
+      alert("Erro ao copiar");
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    setFooterError("");
-    setSuccessMessage("");
+    const uid = auth.currentUser?.uid;
 
     if (!uid) {
-      setFooterError("Utilizador não autenticado");
-      return;
-    }
-
-    if (!amount || Number(amount) <= 0) {
-      setFooterError("Informe um valor válido");
-      return;
-    }
-
-    if (!transactionCode.trim()) {
-      setFooterError("Informe o ID da transação");
+      setErrorMsg("Usuário não autenticado.");
       return;
     }
 
     try {
       setSubmitting(true);
+      setErrorMsg("");
+      setSuccessMsg("");
+
+      if (!phone.trim()) {
+        throw new Error("Informe o número de telefone.");
+      }
+
+      if (!amount || Number(amount) <= 0) {
+        throw new Error("Informe um valor válido.");
+      }
+
+      if (!transactionCode.trim()) {
+        throw new Error("Informe o ID da transação.");
+      }
 
       await createTransaction({
         uid,
         type: "deposito",
-        method: "M-Pesa",
-        phone: userPhone || "849429961",
+        method,
+        phone: phone.trim(),
         amount: Number(amount),
-        transactionCode: transactionCode.trim().toUpperCase(),
+        transactionCode: transactionCode.trim(),
       });
 
-      setSuccessMessage("Sucesso");
+      setSuccessMsg("Depósito enviado com sucesso.");
+      setPhone("");
+      setAmount("");
+      setTransactionCode("");
 
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 1500);
+      await loadProfile(uid);
     } catch (error: any) {
-      setFooterError(error?.message || "Erro ao enviar depósito");
+      setErrorMsg(error?.message || "Erro ao solicitar depósito.");
     } finally {
       setSubmitting(false);
     }
   }
 
+  if (loading) {
+    return <div className="p-4 text-white">Carregando...</div>;
+  }
+
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-3 pb-28 pt-3 text-white">
-      <div className="mx-auto max-w-md space-y-3">
-        <h1 className="text-xl font-bold">Depósito</h1>
-
-        {successMessage && (
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
-            <p className="text-lg font-bold text-emerald-400">{successMessage}</p>
+    <main className="min-h-screen bg-black px-3 pt-3 pb-24 text-white">
+      <div className="mx-auto max-w-sm space-y-3">
+        <div className="rounded-2xl bg-white/5 p-4">
+          <div className="flex items-center gap-2">
+            <ArrowDownCircle size={18} className="text-emerald-400" />
+            <h1 className="text-lg font-bold">Depósito</h1>
           </div>
-        )}
-
-        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-          <p className="text-xs text-slate-400">Enviar valor para</p>
-
-          <div className="mt-3 space-y-2 rounded-lg bg-slate-950/40 p-3">
-            <div>
-              <p className="text-[11px] text-slate-400">Método</p>
-              <p className="text-sm font-semibold text-emerald-400">M-Pesa</p>
-            </div>
-            <div>
-              <p className="text-[11px] text-slate-400">Número</p>
-              <p className="text-sm font-semibold text-white">849429961</p>
-            </div>
-            <div>
-              <p className="text-[11px] text-slate-400">Nome</p>
-              <p className="text-sm font-semibold text-white capitalize">flavia</p>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="mt-3 space-y-3">
-            <div>
-              <label className="mb-1 block text-xs text-slate-300">Valor</label>
-              <input
-                type="number"
-                min="1"
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="Ex: 1000"
-                className="w-full rounded-lg border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-white outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-xs text-slate-300">ID da transação</label>
-              <input
-                type="text"
-                value={transactionCode}
-                onChange={(e) => setTransactionCode(e.target.value.toUpperCase())}
-                placeholder="Ex: DBI2JAJX"
-                className="w-full rounded-lg border border-white/10 bg-slate-950/40 px-3 py-2 text-sm uppercase text-white outline-none"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex w-full items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-black disabled:opacity-70"
-            >
-              {submitting ? (
-                <span className="flex items-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/30 border-t-black" />
-                  Processando...
-                </span>
-              ) : (
-                "Confirmar depósito"
-              )}
-            </button>
-          </form>
         </div>
+
+        <div className="rounded-2xl bg-white/5 p-4 text-sm">
+          <div className="flex justify-between">
+            <span>Saldo</span>
+            <span className="font-bold text-emerald-400">
+              {formatMoney(profile?.balance ?? 0)} MZN
+            </span>
+          </div>
+        </div>
+
+        <div className="rounded-2xl bg-emerald-500/10 p-4">
+          <h2 className="mb-2 text-sm font-bold text-emerald-300">
+            Dados para depósito
+          </h2>
+
+          <div className="mb-3 rounded-xl bg-black/20 p-3">
+            <p className="text-xs text-slate-400">M-Pesa</p>
+
+            <div className="mt-1 flex items-center justify-between">
+              <div>
+                <p className="font-bold text-white">849429961</p>
+                <p className="text-xs font-semibold text-emerald-300">
+                  Flavia
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleCopy("849429961", "mpesa")}
+                className="rounded-lg bg-emerald-500 p-2 text-black transition hover:bg-emerald-400"
+              >
+                {copied === "mpesa" ? <Check size={16} /> : <Copy size={16} />}
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-black/20 p-3">
+            <p className="text-xs text-slate-400">E-mola</p>
+
+            <div className="mt-1 flex items-center justify-between">
+              <div>
+                <p className="font-bold text-white">849429961</p>
+                <p className="text-xs font-semibold text-emerald-300">
+                  Flavia
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleCopy("849429961", "emola")}
+                className="rounded-lg bg-emerald-500 p-2 text-black transition hover:bg-emerald-400"
+              >
+                {copied === "emola" ? <Check size={16} /> : <Copy size={16} />}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          {successMsg && (
+            <div className="rounded-xl border border-emerald-400 bg-emerald-500/20 px-3 py-2 text-sm font-bold text-emerald-300">
+              {successMsg}
+            </div>
+          )}
+
+          {errorMsg && (
+            <div className="rounded-xl border border-red-400 bg-red-500/20 px-3 py-2 text-sm text-red-300">
+              {errorMsg}
+            </div>
+          )}
+
+          <select
+            value={method}
+            onChange={(e) => setMethod(e.target.value as "M-Pesa" | "E-mola")}
+            className="w-full rounded-xl border-2 border-emerald-500 bg-white px-4 py-3 font-semibold text-black outline-none focus:border-emerald-400"
+          >
+            <option value="M-Pesa">M-Pesa</option>
+            <option value="E-mola">E-mola</option>
+          </select>
+
+          <input
+            type="text"
+            placeholder="Seu número"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="w-full rounded-xl border-2 border-cyan-500 bg-white px-4 py-3 font-semibold text-black placeholder:text-slate-500 outline-none focus:border-cyan-400"
+            required
+          />
+
+          <input
+            type="number"
+            placeholder="Valor"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="w-full rounded-xl border-2 border-amber-500 bg-white px-4 py-3 font-semibold text-black placeholder:text-slate-500 outline-none focus:border-amber-400"
+            required
+          />
+
+          <input
+            type="text"
+            placeholder="ID da transação"
+            value={transactionCode}
+            onChange={(e) => setTransactionCode(e.target.value)}
+            className="w-full rounded-xl border-2 border-violet-500 bg-white px-4 py-3 font-semibold text-black placeholder:text-slate-500 outline-none focus:border-violet-400"
+            required
+          />
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full rounded-xl bg-emerald-500 py-3 font-bold text-black transition hover:bg-emerald-400 disabled:opacity-70"
+          >
+            {submitting ? "Enviando..." : "Confirmar depósito"}
+          </button>
+        </form>
       </div>
-
-      {footerError && (
-        <div className="fixed bottom-20 left-1/2 z-40 w-[92%] max-w-md -translate-x-1/2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-center shadow-lg backdrop-blur-sm">
-          <p className="text-sm font-bold text-red-400">{footerError}</p>
-        </div>
-      )}
 
       <BottomNav />
     </main>
