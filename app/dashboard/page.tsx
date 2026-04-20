@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import BackButton from "../components/BackButton";
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";

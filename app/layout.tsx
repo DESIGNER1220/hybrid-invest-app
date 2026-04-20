@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import PWARegister from "./components/PWARegister";
+import AppHeader from "./components/AppHeader";
 
 export const metadata: Metadata = {
   title: "Hybrid Invest",
@@ -30,6 +31,11 @@ export default function RootLayout({
     <html lang="pt">
       <body>
         <PWARegister />
+
+        {/* 🔥 HEADER GLOBAL */}
+        <AppHeader />
+
+        {/* 🔥 CONTEÚDO */}
         {children}
       </body>
     </html>
