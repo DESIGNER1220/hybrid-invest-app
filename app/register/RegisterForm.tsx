@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { registerUser } from "../services/authService";
 
 export default function RegisterForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -20,21 +19,16 @@ export default function RegisterForm() {
   const [autoFilled, setAutoFilled] = useState(false);
 
   useEffect(() => {
-    const refFromSearchParams = searchParams.get("ref")?.trim() || "";
+    if (typeof window === "undefined") return;
 
-    let refFromWindow = "";
-    if (typeof window !== "undefined") {
-      refFromWindow =
-        new URLSearchParams(window.location.search).get("ref")?.trim() || "";
-    }
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
 
-    const finalRef = (refFromSearchParams || refFromWindow).toUpperCase();
-
-    if (finalRef) {
-      setRefCode(finalRef);
+    if (ref?.trim()) {
+      setRefCode(ref.trim().toUpperCase());
       setAutoFilled(true);
     }
-  }, [searchParams]);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
