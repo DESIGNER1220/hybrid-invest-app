@@ -31,11 +31,7 @@ export default function RootLayout({
     <html lang="pt">
       <body>
         <PWARegister />
-
-        {/* 🔥 HEADER GLOBAL */}
         <AppHeader />
-
-        {/* 🔥 CONTEÚDO */}
         {children}
       </body>
     </html>
