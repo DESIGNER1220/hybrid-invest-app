@@ -311,9 +311,8 @@ async function getTotalInvested(uid: string) {
   return totalInvested;
 }
 
-/* NOVO: contar convidados reais pelo código */
 export async function countReferralsByCode(referralCode: string) {
-  const normalizedCode = (referralCode || "").trim().toUpperCase();
+  const normalizedCode = String(referralCode || "").trim().toUpperCase();
 
   if (!normalizedCode) return 0;
 
@@ -324,6 +323,22 @@ export async function countReferralsByCode(referralCode: string) {
 
   const snapshot = await getDocs(q);
   return snapshot.size;
+}
+
+export function getVipLevelByReferrals(referrals: number) {
+  if (referrals >= 10) return "VIP5";
+  if (referrals >= 8) return "VIP4";
+  if (referrals >= 5) return "VIP3";
+  if (referrals >= 3) return "VIP2";
+  return "VIP1";
+}
+
+export function getWithdrawalFeePercentByReferrals(referrals: number) {
+  if (referrals >= 10) return 0;
+  if (referrals >= 8) return 4;
+  if (referrals >= 5) return 6;
+  if (referrals >= 3) return 10;
+  return 12;
 }
 
 function getWheelRewardByInvestment(totalInvested: number) {
@@ -414,8 +429,7 @@ export async function registerUser(params: {
     throw new Error("Este número de telefone já está registado.");
   }
 
-  /* NOVO: validar o código antes de salvar */
-  const normalizedRefCode = refCode?.trim().toUpperCase() || null;
+  const normalizedRefCode = String(refCode || "").trim().toUpperCase();
   let validRefCode: string | null = null;
 
   if (normalizedRefCode) {
@@ -457,22 +471,6 @@ export async function registerUser(params: {
     lastSpinAt: null,
     createdAt: serverTimestamp(),
   });
-
-  /* MANTIDO: não removi tua lógica antiga */
-  if (validRefCode) {
-    const refQuery = query(
-      collection(db, "users"),
-      where("referralCode", "==", validRefCode)
-    );
-    const refSnap = await getDocs(refQuery);
-
-    if (!refSnap.empty) {
-      const referrerDoc = refSnap.docs[0];
-      await updateDoc(referrerDoc.ref, {
-        referrals: increment(1),
-      });
-    }
-  }
 
   return userCredential;
 }
@@ -540,18 +538,25 @@ export async function getUserProfile(uid: string) {
   if (!docSnap.exists()) return null;
 
   const userData: any = docSnap.data();
+
   const referralCode = String(userData.referralCode || "")
     .trim()
     .toUpperCase();
 
-  /* NOVO: recalcular convidados reais */
+  const storedReferrals = Number(userData.referrals ?? 0);
   const realReferrals = referralCode
     ? await countReferralsByCode(referralCode)
     : 0;
 
+  const referrals = Math.max(storedReferrals, realReferrals);
+  const vipLevel = getVipLevelByReferrals(referrals);
+  const withdrawalFeePercent = getWithdrawalFeePercentByReferrals(referrals);
+
   return {
     ...userData,
-    referrals: realReferrals,
+    referrals,
+    vipLevel,
+    withdrawalFeePercent,
   };
 }
 
@@ -700,13 +705,32 @@ export async function approveTransaction(transactionId: string) {
     }
 
     if (transactionData.type === "levantamento") {
+      const referralCode = String(userData.referralCode || "")
+        .trim()
+        .toUpperCase();
+
+      const realReferrals = referralCode
+        ? await countReferralsByCode(referralCode)
+        : 0;
+
+      const referrals = Math.max(
+        Number(userData.referrals ?? 0),
+        Number(realReferrals ?? 0)
+      );
+
+      const feePercent = getWithdrawalFeePercentByReferrals(referrals);
+      const feeAmount = round2(amount * (feePercent / 100));
+      const totalDeduction = round2(amount + feeAmount);
+
       const available = currentBalance + currentTotalProfit + currentBonus;
 
-      if (available < amount) {
-        throw new Error("Saldo insuficiente para aprovar levantamento.");
+      if (available < totalDeduction) {
+        throw new Error(
+          `Saldo insuficiente para aprovar levantamento. Necessário: ${totalDeduction} MZN`
+        );
       }
 
-      let remaining = amount;
+      let remaining = totalDeduction;
       let newBalance = currentBalance;
       let newTotalProfit = currentTotalProfit;
       let newBonus = currentBonus;
@@ -737,6 +761,14 @@ export async function approveTransaction(transactionId: string) {
         balance: round2(newBalance),
         totalProfit: round2(newTotalProfit),
         bonus: round2(newBonus),
+        referrals: referrals,
+      });
+
+      tx.update(transactionRef, {
+        withdrawalFeePercent: feePercent,
+        withdrawalFeeAmount: feeAmount,
+        withdrawalNetAmount: round2(amount),
+        withdrawalTotalDeduction: totalDeduction,
       });
     }
 
@@ -990,7 +1022,6 @@ export async function spinWheel(uid: string) {
   const reward = getWheelRewardByInvestment(totalInvested);
   const rewardLabel = getRewardLabel(reward);
 
-  /* NOVO: usar convidados reais */
   const userSnapBefore = await getDoc(userRef);
   if (!userSnapBefore.exists()) {
     throw new Error("Usuário não encontrado");
@@ -1008,7 +1039,10 @@ export async function spinWheel(uid: string) {
     }
 
     const userData: any = userSnap.data();
-    const referrals = Number(realReferrals ?? 0);
+    const referrals = Math.max(
+      Number(userData.referrals ?? 0),
+      Number(realReferrals ?? 0)
+    );
 
     if (referrals < 1) {
       throw new Error("Convide pelo menos 1 amigo");
