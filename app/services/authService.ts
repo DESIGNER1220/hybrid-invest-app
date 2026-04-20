@@ -311,6 +311,21 @@ async function getTotalInvested(uid: string) {
   return totalInvested;
 }
 
+/* NOVO: contar convidados reais pelo código */
+export async function countReferralsByCode(referralCode: string) {
+  const normalizedCode = (referralCode || "").trim().toUpperCase();
+
+  if (!normalizedCode) return 0;
+
+  const q = query(
+    collection(db, "users"),
+    where("referredBy", "==", normalizedCode)
+  );
+
+  const snapshot = await getDocs(q);
+  return snapshot.size;
+}
+
 function getWheelRewardByInvestment(totalInvested: number) {
   if (totalInvested < 100) {
     return 0;
@@ -399,6 +414,22 @@ export async function registerUser(params: {
     throw new Error("Este número de telefone já está registado.");
   }
 
+  /* NOVO: validar o código antes de salvar */
+  const normalizedRefCode = refCode?.trim().toUpperCase() || null;
+  let validRefCode: string | null = null;
+
+  if (normalizedRefCode) {
+    const refQuery = query(
+      collection(db, "users"),
+      where("referralCode", "==", normalizedRefCode)
+    );
+    const refSnap = await getDocs(refQuery);
+
+    if (!refSnap.empty) {
+      validRefCode = normalizedRefCode;
+    }
+  }
+
   const userCredential = await createUserWithEmailAndPassword(
     auth,
     email,
@@ -414,7 +445,7 @@ export async function registerUser(params: {
     phone,
     phoneNormalized,
     referralCode,
-    referredBy: refCode || null,
+    referredBy: validRefCode,
     balance: 0,
     bonus: 0,
     totalProfit: 0,
@@ -427,10 +458,11 @@ export async function registerUser(params: {
     createdAt: serverTimestamp(),
   });
 
-  if (refCode) {
+  /* MANTIDO: não removi tua lógica antiga */
+  if (validRefCode) {
     const refQuery = query(
       collection(db, "users"),
-      where("referralCode", "==", refCode)
+      where("referralCode", "==", validRefCode)
     );
     const refSnap = await getDocs(refQuery);
 
@@ -506,7 +538,21 @@ export async function getUserProfile(uid: string) {
   const docSnap = await getDoc(docRef);
 
   if (!docSnap.exists()) return null;
-  return docSnap.data();
+
+  const userData: any = docSnap.data();
+  const referralCode = String(userData.referralCode || "")
+    .trim()
+    .toUpperCase();
+
+  /* NOVO: recalcular convidados reais */
+  const realReferrals = referralCode
+    ? await countReferralsByCode(referralCode)
+    : 0;
+
+  return {
+    ...userData,
+    referrals: realReferrals,
+  };
 }
 
 export async function createTransaction(params: {
@@ -944,6 +990,17 @@ export async function spinWheel(uid: string) {
   const reward = getWheelRewardByInvestment(totalInvested);
   const rewardLabel = getRewardLabel(reward);
 
+  /* NOVO: usar convidados reais */
+  const userSnapBefore = await getDoc(userRef);
+  if (!userSnapBefore.exists()) {
+    throw new Error("Usuário não encontrado");
+  }
+
+  const userDataBefore: any = userSnapBefore.data();
+  const realReferrals = await countReferralsByCode(
+    String(userDataBefore.referralCode || "").trim().toUpperCase()
+  );
+
   await runTransaction(db, async (tx) => {
     const userSnap = await tx.get(userRef);
     if (!userSnap.exists()) {
@@ -951,7 +1008,7 @@ export async function spinWheel(uid: string) {
     }
 
     const userData: any = userSnap.data();
-    const referrals = Number(userData.referrals ?? 0);
+    const referrals = Number(realReferrals ?? 0);
 
     if (referrals < 1) {
       throw new Error("Convide pelo menos 1 amigo");
@@ -979,6 +1036,7 @@ export async function spinWheel(uid: string) {
       lastSpinDate: todayKey,
       lastSpinAt: serverTimestamp(),
       spinsUsedToday: previousSpinsUsedToday + 1,
+      referrals: referrals,
     };
 
     if (reward > 0) {
