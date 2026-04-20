@@ -14,6 +14,8 @@ import {
   Copy,
   Check,
   Link2,
+  Crown,
+  Percent,
 } from "lucide-react";
 import { auth } from "../lib/firebase";
 import {
@@ -33,6 +35,8 @@ type UserProfile = {
   referralCode?: string;
   referrals?: number;
   role?: string;
+  vipLevel?: string;
+  withdrawalFeePercent?: number;
 };
 
 type HistoryItem = {
@@ -186,7 +190,7 @@ export default function PerfilPage() {
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg">
           <h1 className="text-lg font-bold">Perfil</h1>
           <p className="mt-1 text-xs text-slate-400">
-            Dados da conta, convite e histórico das últimas 24 horas.
+            Dados da conta, convite, VIP e histórico das últimas 24 horas.
           </p>
         </div>
 
@@ -232,6 +236,58 @@ export default function PerfilPage() {
               <span className="font-semibold text-white">
                 {Number(profile?.referrals ?? 0)}
               </span>
+            </div>
+
+            <div className="flex justify-between gap-3">
+              <span className="flex items-center gap-1 text-slate-400">
+                <Crown size={14} />
+                Nível VIP
+              </span>
+              <span className="font-semibold text-violet-300">
+                {profile?.vipLevel || "VIP1"}
+              </span>
+            </div>
+
+            <div className="flex justify-between gap-3">
+              <span className="flex items-center gap-1 text-slate-400">
+                <Percent size={14} />
+                Taxa de levantamento
+              </span>
+              <span className="font-semibold text-orange-300">
+                {Number(profile?.withdrawalFeePercent ?? 12)}%
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-xl border border-violet-500/20 bg-violet-500/10 p-3">
+            <div className="mb-2 flex items-center gap-2">
+              <Crown size={15} className="text-violet-300" />
+              <h2 className="text-sm font-bold text-violet-300">
+                Tabela VIP de levantamento
+              </h2>
+            </div>
+
+            <div className="space-y-2 text-[11px] text-white">
+              <div className="flex justify-between rounded-lg bg-black/20 px-3 py-2">
+                <span>VIP1</span>
+                <span>0 a 2 convidados • 12%</span>
+              </div>
+              <div className="flex justify-between rounded-lg bg-black/20 px-3 py-2">
+                <span>VIP2</span>
+                <span>3 convidados • 10%</span>
+              </div>
+              <div className="flex justify-between rounded-lg bg-black/20 px-3 py-2">
+                <span>VIP3</span>
+                <span>5 convidados • 6%</span>
+              </div>
+              <div className="flex justify-between rounded-lg bg-black/20 px-3 py-2">
+                <span>VIP4</span>
+                <span>8 convidados • 4%</span>
+              </div>
+              <div className="flex justify-between rounded-lg bg-black/20 px-3 py-2">
+                <span>VIP5</span>
+                <span>10+ convidados • 0%</span>
+              </div>
             </div>
           </div>
 
