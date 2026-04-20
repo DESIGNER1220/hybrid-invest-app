@@ -303,23 +303,25 @@ export default function PerfilPage() {
             <div className="rounded-lg border border-white/10 bg-black/20 p-3">
               <p className="text-[11px] text-slate-400">Código de bónus</p>
 
-              <div className="mt-2 flex gap-2">
+              <div className="mt-2 space-y-2">
                 <input
                   type="text"
                   value={bonusCode}
                   onChange={(e) => setBonusCode(e.target.value.toUpperCase())}
                   placeholder="Digite o código de bónus"
-                  className="flex-1 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white outline-none"
+                  className="w-full rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white outline-none"
                 />
 
-                <button
-                  type="button"
-                  onClick={handleRedeemBonus}
-                  disabled={redeemingBonus}
-                  className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {redeemingBonus ? "..." : "Resgatar"}
-                </button>
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={handleRedeemBonus}
+                    disabled={redeemingBonus}
+                    className="rounded-lg bg-emerald-500 px-6 py-2 text-xs font-bold text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {redeemingBonus ? "..." : "Resgatar"}
+                  </button>
+                </div>
               </div>
 
               {bonusSuccess ? (
@@ -364,6 +366,7 @@ export default function PerfilPage() {
               {history.map((item) => {
                 if (item.sourceType === "transaction") {
                   const isDeposit = item.type === "deposito";
+                  const isWithdraw = item.type === "levantamento";
 
                   return (
                     <div
