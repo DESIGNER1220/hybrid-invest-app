@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import NextImage from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
@@ -12,7 +12,8 @@ import {
   type GlobalChatMessage,
 } from "../services/authService";
 import BottomNav from "../components/BottomNav";
-import { Send, ShieldCheck, ArrowLeft, Paperclip, X } from "lucide-react";
+import ImageAnnotator from "../components/ImageAnnotator";
+import { Send, ShieldCheck, ArrowLeft, Paperclip, X, Edit3 } from "lucide-react";
 
 type UserProfile = {
   role?: string;
@@ -26,12 +27,80 @@ function formatTime(timestamp?: { seconds?: number }) {
   });
 }
 
-function fileToBase64(file: File) {
-  return new Promise<string>((resolve, reject) => {
+async function fileToBase64(file: File): Promise<string> {
+  const maxSize = 1024 * 1024;
+
+  if (file.size <= maxSize) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  const imageUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new window.Image();
+    i.onload = () => resolve(i);
+    i.onerror = reject;
+    i.src = imageUrl;
+  });
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) {
+    throw new Error("Erro ao processar imagem.");
+  }
+
+  let width = img.width;
+  let height = img.height;
+  const maxDim = 1280;
+
+  if (width > height && width > maxDim) {
+    height = Math.round((height * maxDim) / width);
+    width = maxDim;
+  } else if (height >= width && height > maxDim) {
+    width = Math.round((width * maxDim) / height);
+    height = maxDim;
+  }
+
+  canvas.width = width;
+  canvas.height = height;
+  ctx.drawImage(img, 0, 0, width, height);
+
+  let quality = 0.9;
+  let blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, "image/jpeg", quality)
+  );
+
+  while (blob && blob.size > maxSize && quality > 0.3) {
+    quality -= 0.1;
+    blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", quality)
+    );
+  }
+
+  if (!blob) {
+    throw new Error("Erro ao comprimir imagem.");
+  }
+
+  if (blob.size > maxSize) {
+    throw new Error("Não foi possível reduzir a imagem para até 1MB.");
+  }
+
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ""));
     reader.onerror = reject;
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(blob);
   });
 }
 
@@ -48,6 +117,8 @@ export default function ChatGlobalPage() {
   const [sending, setSending] = useState(false);
   const [selectedFileName, setSelectedFileName] = useState("");
   const [selectedImageDataUrl, setSelectedImageDataUrl] = useState("");
+  const [zoomImageUrl, setZoomImageUrl] = useState("");
+  const [editingImage, setEditingImage] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -127,14 +198,8 @@ export default function ChatGlobalPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const allowed = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
-    if (!allowed.includes(file.type)) {
-      alert("Selecione apenas imagem JPG, PNG ou WEBP.");
-      return;
-    }
-
-    if (file.size > 200 * 1024) {
-      alert("A imagem deve ter no máximo 200 KB.");
+    if (!file.type.startsWith("image/")) {
+      alert("Selecione apenas imagens.");
       return;
     }
 
@@ -142,8 +207,8 @@ export default function ChatGlobalPage() {
       const base64 = await fileToBase64(file);
       setSelectedFileName(file.name);
       setSelectedImageDataUrl(base64);
-    } catch {
-      alert("Erro ao ler imagem.");
+    } catch (error: any) {
+      alert(error?.message || "Erro ao processar imagem.");
     }
   }
 
@@ -154,6 +219,11 @@ export default function ChatGlobalPage() {
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+  }
+
+  function handleSaveEditedImage(dataUrl: string) {
+    setSelectedImageDataUrl(dataUrl);
+    setEditingImage(false);
   }
 
   if (loading) {
@@ -177,7 +247,7 @@ export default function ChatGlobalPage() {
             </button>
 
             <div>
-              <h1 className="text-lg font-bold">Suporte</h1>
+              <h1 className="text-lg font-bold">Chat Global</h1>
               <p className="text-[11px] text-slate-400">
                 {isAdmin ? "Mensagem para todos" : "Chat global"}
               </p>
@@ -231,7 +301,7 @@ export default function ChatGlobalPage() {
                                 : "text-cyan-300"
                           }`}
                         >
-                          {adminMessage ? "Administrador" : msg.senderName}
+                          {mine ? "Você" : adminMessage ? "Administrador" : msg.senderName}
                         </span>
                       </div>
 
@@ -249,15 +319,19 @@ export default function ChatGlobalPage() {
                     )}
 
                     {!!msg.imageDataUrl && (
-                      <div className="mt-2 overflow-hidden rounded-xl">
-                        <Image
+                      <button
+                        type="button"
+                        onClick={() => setZoomImageUrl(msg.imageDataUrl || "")}
+                        className="mt-2 block w-full overflow-hidden rounded-xl"
+                      >
+                        <NextImage
                           src={msg.imageDataUrl}
                           alt="Imagem enviada"
                           width={320}
                           height={240}
                           className="h-auto w-full object-cover"
                         />
-                      </div>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -278,17 +352,30 @@ export default function ChatGlobalPage() {
                   {selectedFileName}
                 </span>
 
-                <button
-                  onClick={clearSelectedFile}
-                  className="flex h-6 w-6 items-center justify-center rounded-full bg-black/20 text-white"
-                >
-                  <X size={12} />
-                </button>
+                <div className="flex items-center gap-2">
+                  {selectedImageDataUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingImage(true)}
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-500 text-black"
+                      title="Editar imagem"
+                    >
+                      <Edit3 size={13} />
+                    </button>
+                  )}
+
+                  <button
+                    onClick={clearSelectedFile}
+                    className="flex h-6 w-6 items-center justify-center rounded-full bg-black/20 text-white"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
               </div>
 
               {selectedImageDataUrl && (
                 <div className="mt-2 overflow-hidden rounded-lg">
-                  <Image
+                  <NextImage
                     src={selectedImageDataUrl}
                     alt="Pré-visualização"
                     width={320}
@@ -303,7 +390,8 @@ export default function ChatGlobalPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/png,image/jpeg,image/jpg,image/webp"
+            accept="image/*"
+            capture="environment"
             className="hidden"
             onChange={handleFileChange}
           />
@@ -332,13 +420,46 @@ export default function ChatGlobalPage() {
             <button
               onClick={handleSend}
               disabled={(!text.trim() && !selectedImageDataUrl) || sending}
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500 text-black shadow-lg transition hover:scale-105 disabled:opacity-60"
+              className="flex h-12 min-w-12 items-center justify-center rounded-full bg-emerald-500 px-4 text-black shadow-lg transition hover:scale-105 disabled:opacity-60"
             >
-              <Send size={18} />
+              {sending ? (
+                <span className="text-xs font-bold">Enviando...</span>
+              ) : (
+                <Send size={18} />
+              )}
             </button>
           </div>
         </div>
       </div>
+
+      {zoomImageUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4">
+          <button
+            onClick={() => setZoomImageUrl("")}
+            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white"
+          >
+            <X size={18} />
+          </button>
+
+          <div className="max-h-full max-w-full overflow-auto">
+            <NextImage
+              src={zoomImageUrl}
+              alt="Imagem ampliada"
+              width={900}
+              height={900}
+              className="h-auto max-h-[90vh] w-auto max-w-[95vw] object-contain"
+            />
+          </div>
+        </div>
+      )}
+
+      {editingImage && selectedImageDataUrl && (
+        <ImageAnnotator
+          imageDataUrl={selectedImageDataUrl}
+          onClose={() => setEditingImage(false)}
+          onSave={handleSaveEditedImage}
+        />
+      )}
 
       <BottomNav />
     </main>
