@@ -1,381 +1,634 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "../lib/firebase";
+import { useRouter } from "next/navigation";
 import {
-  activateBonusCode,
-  approveTransaction,
-  createBonusCode,
-  deactivateBonusCode,
-  getBonusCodes,
-  getPendingTransactions,
-  getUserProfile,
-  rejectTransaction,
-} from "../services/authService";
+  CheckCircle2,
+  XCircle,
+  Gift,
+  Shield,
+  ShieldOff,
+  Users,
+  Clock3,
+  Wallet,
+} from "lucide-react";
+import { auth } from "../lib/firebase";
 import BottomNav from "../components/BottomNav";
+import {
+  getPendingTransactions,
+  approveTransaction,
+  rejectTransaction,
+  generateRandomBonusCode,
+  createBonusCode,
+  getBonusCodes,
+  deactivateBonusCode,
+  activateBonusCode,
+  getAllUsers,
+  setUserBlockedStatus,
+  getUserProfile,
+} from "../services/authService";
 
-type TransactionItem = {
+type PendingTransaction = {
   id: string;
   uid: string;
   type: "deposito" | "levantamento";
   method?: string;
   phone?: string;
-  amount: number;
-  status: string;
+  amount?: number;
   transactionCode?: string;
-  createdAt?: {
-    seconds?: number;
-  };
+  status?: string;
+  createdAt?: { seconds?: number };
 };
 
 type BonusCodeItem = {
   id: string;
-  code: string;
-  amount: number;
-  isActive: boolean;
-  used: boolean;
+  code?: string;
+  amount?: number;
+  isActive?: boolean;
+  used?: boolean;
   usedBy?: string | null;
+  createdAt?: { seconds?: number };
 };
 
-function formatDateTime(timestamp?: { seconds?: number }) {
-  if (!timestamp?.seconds) return "Data indisponível";
+type UserItem = {
+  id: string;
+  uid?: string;
+  phone?: string;
+  email?: string;
+  role?: string;
+  blocked?: boolean;
+  balance?: number;
+  totalProfit?: number;
+  bonus?: number;
+  referrals?: number;
+  createdAt?: { seconds?: number };
+};
 
-  return new Date(timestamp.seconds * 1000).toLocaleString("pt-MZ", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+type AdminProfile = {
+  role?: string;
+};
+
+function formatMoney(value: number) {
+  return Number(value || 0).toLocaleString("pt-MZ");
 }
+
+function formatDateTime(timestamp?: { seconds?: number }) {
+  if (!timestamp?.seconds) return "—";
+  return new Date(timestamp.seconds * 1000).toLocaleString("pt-MZ");
+}
+
+type TabKey = "transactions" | "bonus" | "users";
 
 export default function AdminPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [transactions, setTransactions] = useState<TransactionItem[]>([]);
-  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>("transactions");
 
-  const [bonusCode, setBonusCode] = useState("");
-  const [bonusAmount, setBonusAmount] = useState("");
-  const [creatingBonus, setCreatingBonus] = useState(false);
+  const [pendingTransactions, setPendingTransactions] = useState<
+    PendingTransaction[]
+  >([]);
   const [bonusCodes, setBonusCodes] = useState<BonusCodeItem[]>([]);
+  const [users, setUsers] = useState<UserItem[]>([]);
 
-  async function loadPending() {
-    const data = await getPendingTransactions();
-    setTransactions((data as TransactionItem[]) || []);
+  const [busyTransactionId, setBusyTransactionId] = useState("");
+  const [busyBonusId, setBusyBonusId] = useState("");
+  const [busyUserId, setBusyUserId] = useState("");
+
+  const [newBonusCode, setNewBonusCode] = useState("");
+  const [newBonusAmount, setNewBonusAmount] = useState("");
+  const [bonusLoading, setBonusLoading] = useState(false);
+
+  async function loadTransactions() {
+    const data = (await getPendingTransactions()) as PendingTransaction[];
+    setPendingTransactions(data);
   }
 
   async function loadBonusCodes() {
-    const data = await getBonusCodes();
-    setBonusCodes((data as BonusCodeItem[]) || []);
+    const data = (await getBonusCodes()) as BonusCodeItem[];
+    setBonusCodes(data);
+  }
+
+  async function loadUsers() {
+    const data = (await getAllUsers()) as UserItem[];
+    setUsers(data);
   }
 
   async function loadAll() {
-    await Promise.all([loadPending(), loadBonusCodes()]);
+    await Promise.all([loadTransactions(), loadBonusCodes(), loadUsers()]);
+  }
+
+  async function handleApprove(transactionId: string) {
+    try {
+      setBusyTransactionId(transactionId);
+      await approveTransaction(transactionId);
+      await loadTransactions();
+      await loadUsers();
+      alert("Transação aprovada com sucesso.");
+    } catch (error: any) {
+      alert(error?.message || "Erro ao aprovar transação.");
+    } finally {
+      setBusyTransactionId("");
+    }
+  }
+
+  async function handleReject(transactionId: string) {
+    try {
+      setBusyTransactionId(transactionId);
+      await rejectTransaction(transactionId);
+      await loadTransactions();
+      alert("Transação rejeitada com sucesso.");
+    } catch (error: any) {
+      alert(error?.message || "Erro ao rejeitar transação.");
+    } finally {
+      setBusyTransactionId("");
+    }
+  }
+
+  async function handleGenerateRandomCode() {
+    try {
+      const code = await generateRandomBonusCode();
+      setNewBonusCode(code);
+    } catch (error: any) {
+      alert(error?.message || "Erro ao gerar código.");
+    }
+  }
+
+  async function handleCreateBonusCode() {
+    try {
+      if (!newBonusCode.trim()) {
+        alert("Informe o código.");
+        return;
+      }
+
+      if (!newBonusAmount.trim() || Number(newBonusAmount) <= 0) {
+        alert("Informe um valor válido.");
+        return;
+      }
+
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        alert("Sessão inválida.");
+        return;
+      }
+
+      setBonusLoading(true);
+
+      await createBonusCode({
+        code: newBonusCode,
+        amount: Number(newBonusAmount),
+        createdBy: currentUser.uid,
+      });
+
+      setNewBonusCode("");
+      setNewBonusAmount("");
+      await loadBonusCodes();
+      alert("Código de bónus criado com sucesso.");
+    } catch (error: any) {
+      alert(error?.message || "Erro ao criar código.");
+    } finally {
+      setBonusLoading(false);
+    }
+  }
+
+  async function handleToggleBonusCode(item: BonusCodeItem) {
+    try {
+      setBusyBonusId(item.id);
+
+      if (item.isActive) {
+        await deactivateBonusCode(item.code || item.id);
+      } else {
+        await activateBonusCode(item.code || item.id);
+      }
+
+      await loadBonusCodes();
+    } catch (error: any) {
+      alert(error?.message || "Erro ao atualizar código.");
+    } finally {
+      setBusyBonusId("");
+    }
+  }
+
+  async function handleToggleUserBlocked(userId: string, currentBlocked: boolean) {
+    try {
+      setBusyUserId(userId);
+      await setUserBlockedStatus(userId, !currentBlocked);
+      await loadUsers();
+      alert(
+        currentBlocked
+          ? "Utilizador desbloqueado com sucesso."
+          : "Utilizador bloqueado com sucesso."
+      );
+    } catch (error: any) {
+      alert(error?.message || "Erro ao atualizar utilizador.");
+    } finally {
+      setBusyUserId("");
+    }
   }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         router.push("/login");
         return;
       }
 
       try {
-        const profile: any = await getUserProfile(user.uid);
+        const profile = (await getUserProfile(user.uid)) as AdminProfile | null;
 
         if (profile?.role !== "admin") {
-          alert("Acesso restrito ao administrador.");
           router.push("/dashboard");
           return;
         }
 
-        setIsAdmin(true);
         await loadAll();
       } catch (error) {
         console.error("Erro ao carregar admin:", error);
-        alert("Erro ao carregar área administrativa.");
+        alert("Erro ao carregar painel admin.");
       } finally {
         setLoading(false);
       }
     });
 
-    return () => unsubscribe();
+    return () => unsub();
   }, [router]);
 
-  async function handleApprove(id: string) {
-    try {
-      setProcessingId(id);
-      await approveTransaction(id);
-      await loadPending();
-      alert("Transação aprovada com sucesso.");
-    } catch (error: any) {
-      alert(error?.message || "Erro ao aprovar transação.");
-    } finally {
-      setProcessingId(null);
-    }
-  }
+  const transactionSummary = useMemo(() => {
+    const deposits = pendingTransactions.filter((t) => t.type === "deposito").length;
+    const withdrawals = pendingTransactions.filter(
+      (t) => t.type === "levantamento"
+    ).length;
 
-  async function handleReject(id: string) {
-    try {
-      setProcessingId(id);
-      await rejectTransaction(id);
-      await loadPending();
-      alert("Transação rejeitada com sucesso.");
-    } catch (error: any) {
-      alert(error?.message || "Erro ao rejeitar transação.");
-    } finally {
-      setProcessingId(null);
-    }
-  }
-
-  async function handleCreateBonus(e: React.FormEvent) {
-    e.preventDefault();
-
-    const user = auth.currentUser;
-    if (!user) return;
-
-    try {
-      setCreatingBonus(true);
-
-      await createBonusCode({
-        code: bonusCode,
-        amount: Number(bonusAmount),
-        createdBy: user.uid,
-      });
-
-      setBonusCode("");
-      setBonusAmount("");
-      await loadBonusCodes();
-      alert("Código de bónus criado com sucesso.");
-    } catch (error: any) {
-      alert(error?.message || "Erro ao criar código.");
-    } finally {
-      setCreatingBonus(false);
-    }
-  }
-
-  async function handleDeactivate(code: string) {
-    try {
-      await deactivateBonusCode(code);
-      await loadBonusCodes();
-    } catch (error: any) {
-      alert(error?.message || "Erro ao desativar código.");
-    }
-  }
-
-  async function handleActivate(code: string) {
-    try {
-      await activateBonusCode(code);
-      await loadBonusCodes();
-    } catch (error: any) {
-      alert(error?.message || "Erro ao ativar código.");
-    }
-  }
+    return { deposits, withdrawals };
+  }, [pendingTransactions]);
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 p-4 text-white">
-        Carregando...
+      <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black p-4 text-white">
+        Carregando painel admin...
       </main>
     );
   }
 
-  if (!isAdmin) return null;
-
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-3 pb-24 pt-3 text-white">
-      <div className="mx-auto max-w-md space-y-4">
-        <div>
-          <h1 className="text-xl font-bold">Administrador</h1>
+    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black px-3 pt-4 pb-24 text-white">
+      <div className="mx-auto max-w-sm space-y-4">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg">
+          <h1 className="text-xl font-bold text-amber-400">Painel do Administrador</h1>
           <p className="mt-1 text-xs text-slate-400">
-            Gestão de transações e códigos de bónus.
+            Aprovações, códigos de bónus e controlo de utilizadores.
           </p>
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-          <p className="text-xs text-slate-400">Pendentes</p>
-          <h2 className="mt-1 text-lg font-bold text-amber-400">
-            {transactions.length}
-          </h2>
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab("transactions")}
+            className={`rounded-xl px-3 py-2 text-xs font-bold transition ${
+              activeTab === "transactions"
+                ? "bg-amber-400 text-black"
+                : "bg-white/5 text-slate-300"
+            }`}
+          >
+            Transações
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("bonus")}
+            className={`rounded-xl px-3 py-2 text-xs font-bold transition ${
+              activeTab === "bonus"
+                ? "bg-amber-400 text-black"
+                : "bg-white/5 text-slate-300"
+            }`}
+          >
+            Bónus
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("users")}
+            className={`rounded-xl px-3 py-2 text-xs font-bold transition ${
+              activeTab === "users"
+                ? "bg-amber-400 text-black"
+                : "bg-white/5 text-slate-300"
+            }`}
+          >
+            Utilizadores
+          </button>
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-          <h2 className="text-sm font-bold text-amber-400">Criar código de bónus</h2>
+        {activeTab === "transactions" && (
+          <section className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-center">
+                <p className="text-[11px] text-slate-400">Depósitos pendentes</p>
+                <p className="mt-1 text-lg font-bold text-emerald-400">
+                  {transactionSummary.deposits}
+                </p>
+              </div>
 
-          <form onSubmit={handleCreateBonus} className="mt-3 space-y-3">
-            <input
-              type="text"
-              value={bonusCode}
-              onChange={(e) => setBonusCode(e.target.value.toUpperCase())}
-              placeholder="Ex: BONUS100"
-              className="w-full rounded-lg border border-white/10 bg-slate-950/40 px-3 py-2 text-sm uppercase text-white outline-none"
-            />
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-center">
+                <p className="text-[11px] text-slate-400">Levantamentos pendentes</p>
+                <p className="mt-1 text-lg font-bold text-amber-400">
+                  {transactionSummary.withdrawals}
+                </p>
+              </div>
+            </div>
 
-            <input
-              type="number"
-              value={bonusAmount}
-              onChange={(e) => setBonusAmount(e.target.value)}
-              placeholder="Valor do bónus"
-              className="w-full rounded-lg border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-white outline-none"
-            />
+            {pendingTransactions.length === 0 ? (
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center text-sm text-slate-400">
+                Sem transações pendentes.
+              </div>
+            ) : (
+              pendingTransactions.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-xl border border-white/10 bg-white/5 p-3 shadow"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Wallet size={15} className="text-cyan-400" />
+                        <p className="text-sm font-bold text-white">
+                          {item.type === "deposito" ? "Depósito" : "Levantamento"}
+                        </p>
+                      </div>
 
-            <button
-              type="submit"
-              disabled={creatingBonus}
-              className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-500 disabled:opacity-70"
-            >
-              {creatingBonus ? "Criando..." : "Criar código"}
-            </button>
-          </form>
-        </div>
+                      <p className="mt-1 text-[11px] text-slate-400">
+                        Telefone: {item.phone || "—"}
+                      </p>
+                      <p className="text-[11px] text-slate-400">
+                        Método: {item.method || "—"}
+                      </p>
 
-        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-          <h2 className="text-sm font-bold text-blue-400">Códigos de bónus</h2>
+                      {item.transactionCode ? (
+                        <p className="text-[11px] text-slate-400">
+                          ID Transação: {item.transactionCode}
+                        </p>
+                      ) : null}
 
-          <div className="mt-3 space-y-2">
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        {formatDateTime(item.createdAt)}
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-emerald-400">
+                        {formatMoney(item.amount ?? 0)} MZN
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={busyTransactionId === item.id}
+                      onClick={() => handleApprove(item.id)}
+                      className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-3 py-2 text-xs font-bold text-black transition hover:bg-emerald-400 disabled:opacity-70"
+                    >
+                      <CheckCircle2 size={15} />
+                      Aprovar
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={busyTransactionId === item.id}
+                      onClick={() => handleReject(item.id)}
+                      className="flex items-center justify-center gap-2 rounded-xl bg-red-500 px-3 py-2 text-xs font-bold text-white transition hover:bg-red-400 disabled:opacity-70"
+                    >
+                      <XCircle size={15} />
+                      Rejeitar
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </section>
+        )}
+
+        {activeTab === "bonus" && (
+          <section className="space-y-3">
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow">
+              <div className="flex items-center gap-2">
+                <Gift size={16} className="text-amber-300" />
+                <h2 className="text-sm font-bold text-white">Criar código de bónus</h2>
+              </div>
+
+              <div className="mt-3 space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Código</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newBonusCode}
+                      onChange={(e) => setNewBonusCode(e.target.value.toUpperCase())}
+                      placeholder="BONUS-XXXX"
+                      className="w-full rounded-xl bg-black/30 px-3 py-2 text-sm text-white outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleGenerateRandomCode}
+                      className="rounded-xl bg-cyan-500 px-3 py-2 text-xs font-bold text-black"
+                    >
+                      Gerar
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Valor</label>
+                  <input
+                    type="number"
+                    value={newBonusAmount}
+                    onChange={(e) => setNewBonusAmount(e.target.value)}
+                    placeholder="Ex: 100"
+                    className="w-full rounded-xl bg-black/30 px-3 py-2 text-sm text-white outline-none"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  disabled={bonusLoading}
+                  onClick={handleCreateBonusCode}
+                  className="w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-bold text-black transition hover:bg-amber-300 disabled:opacity-70"
+                >
+                  {bonusLoading ? "A criar..." : "Criar código"}
+                </button>
+              </div>
+            </div>
+
             {bonusCodes.length === 0 ? (
-              <p className="text-xs text-slate-400">Nenhum código criado.</p>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center text-sm text-slate-400">
+                Nenhum código encontrado.
+              </div>
             ) : (
               bonusCodes.map((item) => (
                 <div
                   key={item.id}
-                  className="rounded-lg border border-white/10 bg-slate-950/40 p-3"
+                  className="rounded-xl border border-white/10 bg-white/5 p-3 shadow"
                 >
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-bold text-white">{item.code}</p>
-                      <p className="text-xs text-slate-400">
-                        Valor: {Number(item.amount || 0).toLocaleString("pt-MZ")} MZN
+                      <p className="text-sm font-bold text-white">
+                        {item.code || item.id}
                       </p>
-                      <p className="text-xs text-slate-400">
+                      <p className="mt-1 text-[11px] text-slate-400">
+                        Valor: {formatMoney(item.amount ?? 0)} MZN
+                      </p>
+                      <p className="text-[11px] text-slate-400">
+                        Estado:{" "}
                         {item.used
                           ? "Utilizado"
                           : item.isActive
                           ? "Ativo"
                           : "Inativo"}
                       </p>
+                      <p className="text-[11px] text-slate-500">
+                        {formatDateTime(item.createdAt)}
+                      </p>
                     </div>
 
                     {!item.used && (
-                      <div className="flex flex-col gap-2">
-                        {item.isActive ? (
-                          <button
-                            onClick={() => handleDeactivate(item.code)}
-                            className="rounded-lg bg-red-500 px-3 py-1 text-xs font-bold text-white"
-                          >
-                            Desativar
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleActivate(item.code)}
-                            className="rounded-lg bg-emerald-500 px-3 py-1 text-xs font-bold text-black"
-                          >
-                            Ativar
-                          </button>
-                        )}
-                      </div>
+                      <button
+                        type="button"
+                        disabled={busyBonusId === item.id}
+                        onClick={() => handleToggleBonusCode(item)}
+                        className={`rounded-xl px-3 py-2 text-xs font-bold transition ${
+                          item.isActive
+                            ? "bg-red-500 text-white hover:bg-red-400"
+                            : "bg-emerald-500 text-black hover:bg-emerald-400"
+                        } disabled:opacity-70`}
+                      >
+                        {item.isActive ? "Desativar" : "Ativar"}
+                      </button>
                     )}
                   </div>
                 </div>
               ))
             )}
-          </div>
-        </div>
+          </section>
+        )}
 
-        {transactions.length === 0 ? (
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center">
-            <p className="text-sm text-slate-300">
-              Não há transações pendentes.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {transactions.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-lg"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h3
-                      className={`text-sm font-bold ${
-                        item.type === "deposito"
-                          ? "text-emerald-400"
-                          : "text-amber-400"
-                      }`}
-                    >
-                      {item.type === "deposito"
-                        ? "Depósito pendente"
-                        : "Levantamento pendente"}
-                    </h3>
-
-                    <p className="mt-1 text-[11px] text-slate-500">
-                      {formatDateTime(item.createdAt)}
-                    </p>
-                  </div>
-
-                  <span className="rounded-full bg-amber-500/20 px-2 py-1 text-[10px] text-amber-400">
-                    {item.status}
-                  </span>
-                </div>
-
-                <div className="mt-3 space-y-1 text-xs text-slate-300">
-                  <p>
-                    Valor:{" "}
-                    <span className="font-semibold text-white">
-                      {Number(item.amount || 0).toLocaleString("pt-MZ")} MZN
-                    </span>
-                  </p>
-
-                  <p>
-                    Método:{" "}
-                    <span className="font-semibold text-white">
-                      {item.method || "Não informado"}
-                    </span>
-                  </p>
-
-                  <p>
-                    Número:{" "}
-                    <span className="font-semibold text-white">
-                      {item.phone || "Não informado"}
-                    </span>
-                  </p>
-
-                  {item.type === "deposito" && (
-                    <p>
-                      ID transação:{" "}
-                      <span className="font-semibold text-white">
-                        {item.transactionCode || "Não informado"}
-                      </span>
-                    </p>
-                  )}
-                </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => handleApprove(item.id)}
-                    disabled={processingId === item.id}
-                    className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-emerald-400 disabled:opacity-70"
-                  >
-                    {processingId === item.id ? "Processando..." : "Aprovar"}
-                  </button>
-
-                  <button
-                    onClick={() => handleReject(item.id)}
-                    disabled={processingId === item.id}
-                    className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-400 disabled:opacity-70"
-                  >
-                    {processingId === item.id ? "Processando..." : "Rejeitar"}
-                  </button>
-                </div>
+        {activeTab === "users" && (
+          <section className="space-y-3">
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow">
+              <div className="flex items-center gap-2">
+                <Users size={16} className="text-cyan-300" />
+                <h2 className="text-sm font-bold text-white">Gestão de utilizadores</h2>
               </div>
-            ))}
-          </div>
+              <p className="mt-1 text-xs text-slate-400">
+                Utilizador bloqueado continua a entrar, pode depositar e investir, mas não pode fazer levantamento.
+              </p>
+            </div>
+
+            {users.length === 0 ? (
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center text-sm text-slate-400">
+                Nenhum utilizador encontrado.
+              </div>
+            ) : (
+              users.map((user) => {
+                const isAdmin = user.role === "admin";
+                const isBlocked = user.blocked === true;
+
+                return (
+                  <div
+                    key={user.id}
+                    className="rounded-xl border border-white/10 bg-white/5 p-3 shadow"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-white">
+                          {user.phone || "Sem telefone"}
+                        </p>
+                        <p className="truncate text-[11px] text-slate-400">
+                          {user.email || "Sem email"}
+                        </p>
+
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <span
+                            className={`rounded-full px-2 py-1 text-[10px] font-bold ${
+                              isAdmin
+                                ? "bg-amber-500/20 text-amber-300"
+                                : "bg-cyan-500/20 text-cyan-300"
+                            }`}
+                          >
+                            {isAdmin ? "Admin" : "Utilizador"}
+                          </span>
+
+                          <span
+                            className={`rounded-full px-2 py-1 text-[10px] font-bold ${
+                              isBlocked
+                                ? "bg-red-500/20 text-red-300"
+                                : "bg-emerald-500/20 text-emerald-300"
+                            }`}
+                          >
+                            {isBlocked ? "Bloqueado" : "Ativo"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {!isAdmin && (
+                        <button
+                          type="button"
+                          disabled={busyUserId === user.id}
+                          onClick={() =>
+                            handleToggleUserBlocked(user.id, isBlocked)
+                          }
+                          className={`flex min-w-[110px] items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition ${
+                            isBlocked
+                              ? "bg-emerald-500 text-black hover:bg-emerald-400"
+                              : "bg-red-500 text-white hover:bg-red-400"
+                          } disabled:opacity-70`}
+                        >
+                          {isBlocked ? (
+                            <>
+                              <Shield size={14} />
+                              Desbloquear
+                            </>
+                          ) : (
+                            <>
+                              <ShieldOff size={14} />
+                              Bloquear
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      <div className="rounded-lg bg-black/20 p-2 text-center">
+                        <p className="text-[10px] text-slate-400">Saldo</p>
+                        <p className="text-[11px] font-bold text-emerald-400">
+                          {formatMoney(user.balance ?? 0)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-lg bg-black/20 p-2 text-center">
+                        <p className="text-[10px] text-slate-400">Lucro</p>
+                        <p className="text-[11px] font-bold text-cyan-400">
+                          {formatMoney(user.totalProfit ?? 0)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-lg bg-black/20 p-2 text-center">
+                        <p className="text-[10px] text-slate-400">Bónus</p>
+                        <p className="text-[11px] font-bold text-amber-300">
+                          {formatMoney(user.bonus ?? 0)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-2 flex items-center gap-2 text-[10px] text-slate-500">
+                      <Clock3 size={12} />
+                      <span>{formatDateTime(user.createdAt)}</span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </section>
         )}
       </div>
 

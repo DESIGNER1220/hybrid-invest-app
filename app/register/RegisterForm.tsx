@@ -17,13 +17,22 @@ export default function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [autoFilled, setAutoFilled] = useState(false);
 
-  // 🔥 AQUI É O SEGREDO
   useEffect(() => {
-    const ref = searchParams.get("ref");
+    const refFromSearchParams = searchParams.get("ref")?.trim() || "";
 
-    if (ref) {
-      setRefCode(ref.toUpperCase());
+    let refFromWindow = "";
+    if (typeof window !== "undefined") {
+      refFromWindow =
+        new URLSearchParams(window.location.search).get("ref")?.trim() || "";
+    }
+
+    const finalRef = (refFromSearchParams || refFromWindow).toUpperCase();
+
+    if (finalRef) {
+      setRefCode(finalRef);
+      setAutoFilled(true);
     }
   }, [searchParams]);
 
@@ -36,26 +45,24 @@ export default function RegisterForm() {
       setSuccessMsg("");
 
       await registerUser({
-        email,
-        phone,
+        email: email.trim(),
+        phone: phone.trim(),
         password,
         confirmPassword,
         refCode: refCode.trim() || null,
       });
 
-      setSuccessMsg("Conta criada com sucesso");
+      setSuccessMsg("Sucesso");
 
       setTimeout(() => {
-        router.push("/dashboard");
-      }, 1500);
+        router.push("/login");
+      }, 2000);
     } catch (error: any) {
       setErrorMsg(error?.message || "Erro ao criar conta.");
     } finally {
       setLoading(false);
     }
   }
-
-  const autoFilled = !!searchParams.get("ref");
 
   return (
     <>
@@ -71,11 +78,9 @@ export default function RegisterForm() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
         <div>
-          <label className="mb-1 block text-sm text-slate-300">
-            Email
-          </label>
+          <label className="mb-1 block text-sm text-slate-300">Email</label>
           <input
             type="email"
             value={email}
@@ -83,6 +88,7 @@ export default function RegisterForm() {
             placeholder="Seu email"
             className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
             required
+            autoComplete="email"
           />
         </div>
 
@@ -97,13 +103,12 @@ export default function RegisterForm() {
             placeholder="Número de telefone"
             className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
             required
+            autoComplete="tel"
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-sm text-slate-300">
-            Senha
-          </label>
+          <label className="mb-1 block text-sm text-slate-300">Senha</label>
           <input
             type="password"
             value={password}
@@ -111,6 +116,7 @@ export default function RegisterForm() {
             placeholder="Sua senha"
             className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
             required
+            autoComplete="new-password"
           />
         </div>
 
@@ -125,10 +131,10 @@ export default function RegisterForm() {
             placeholder="Confirme a senha"
             className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
             required
+            autoComplete="new-password"
           />
         </div>
 
-        {/* 🔥 CAMPO DE REFERÊNCIA */}
         <div>
           <label className="mb-1 block text-sm text-slate-300">
             Código de referência
@@ -139,6 +145,8 @@ export default function RegisterForm() {
             onChange={(e) => setRefCode(e.target.value.toUpperCase())}
             placeholder="Código de referência"
             className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
+            autoComplete="off"
+            readOnly={autoFilled}
           />
 
           {autoFilled && (

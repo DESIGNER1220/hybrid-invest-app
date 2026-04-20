@@ -50,6 +50,7 @@ export type SupportUser = {
   phone?: string;
   email?: string;
   role?: string;
+  blocked?: boolean;
 };
 
 export type WheelSpinHistoryItem = {
@@ -419,6 +420,7 @@ export async function registerUser(params: {
     totalProfit: 0,
     referrals: 0,
     role,
+    blocked: false,
     spinsUsedToday: 0,
     lastSpinDate: "",
     lastSpinAt: null,
@@ -523,6 +525,21 @@ export async function createTransaction(params: {
 
   if (type === "deposito" && !transactionCode?.trim()) {
     throw new Error("Informe o ID da transação.");
+  }
+
+  if (type === "levantamento") {
+    const userRef = doc(db, "users", uid);
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) {
+      throw new Error("Utilizador não encontrado.");
+    }
+
+    const userData: any = userSnap.data();
+
+    if (userData?.blocked === true) {
+      throw new Error("Negado, conta bloqueada");
+    }
   }
 
   await addDoc(collection(db, "transactions"), {
@@ -1163,4 +1180,27 @@ export async function getTodayHistory(uid: string) {
       const bSec = Number(b.createdAt?.seconds ?? 0);
       return bSec - aSec;
     });
+}
+
+export async function getAllUsers() {
+  const snapshot = await getDocs(collection(db, "users"));
+
+  const data = snapshot.docs.map((item) => ({
+    id: item.id,
+    ...item.data(),
+  }));
+
+  return data.sort((a: any, b: any) => {
+    const aSec = Number(a.createdAt?.seconds ?? 0);
+    const bSec = Number(b.createdAt?.seconds ?? 0);
+    return bSec - aSec;
+  });
+}
+
+export async function setUserBlockedStatus(uid: string, blocked: boolean) {
+  const userRef = doc(db, "users", uid);
+
+  await updateDoc(userRef, {
+    blocked,
+  });
 }

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
+
 import {
   Clock3,
   Gift,
@@ -19,6 +20,7 @@ import {
   getTodayHistory,
   getUserProfile,
   logoutUser,
+  redeemBonusCode,
 } from "../services/authService";
 import BottomNav from "../components/BottomNav";
 
@@ -68,6 +70,11 @@ export default function PerfilPage() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [copiedField, setCopiedField] = useState<"" | "code" | "link">("");
 
+  const [bonusCode, setBonusCode] = useState("");
+  const [redeemingBonus, setRedeemingBonus] = useState(false);
+  const [bonusSuccess, setBonusSuccess] = useState("");
+  const [bonusError, setBonusError] = useState("");
+
   async function loadAll(uid: string) {
     const [profileData, todayHistory] = await Promise.all([
       getUserProfile(uid),
@@ -81,6 +88,37 @@ export default function PerfilPage() {
   async function handleLogout() {
     await logoutUser();
     router.push("/login");
+  }
+
+  async function handleRedeemBonus() {
+    const uid = auth.currentUser?.uid;
+
+    if (!uid) {
+      setBonusError("Usuário não autenticado.");
+      return;
+    }
+
+    if (!bonusCode.trim()) {
+      setBonusError("Digite o código de bónus.");
+      return;
+    }
+
+    try {
+      setRedeemingBonus(true);
+      setBonusSuccess("");
+      setBonusError("");
+
+      await redeemBonusCode(uid, bonusCode);
+
+      await loadAll(uid);
+
+      setBonusCode("");
+      setBonusSuccess("Bónus resgatado com sucesso!");
+    } catch (error: any) {
+      setBonusError(error?.message || "Erro ao resgatar bónus.");
+    } finally {
+      setRedeemingBonus(false);
+    }
   }
 
   async function copyText(
@@ -254,6 +292,48 @@ export default function PerfilPage() {
             </div>
           </div>
 
+          <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3">
+            <div className="mb-2 flex items-center gap-2">
+              <Gift size={15} className="text-emerald-300" />
+              <h2 className="text-sm font-bold text-emerald-300">
+                Resgatar bónus
+              </h2>
+            </div>
+
+            <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+              <p className="text-[11px] text-slate-400">Código de bónus</p>
+
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="text"
+                  value={bonusCode}
+                  onChange={(e) => setBonusCode(e.target.value.toUpperCase())}
+                  placeholder="Digite o código de bónus"
+                  className="flex-1 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white outline-none"
+                />
+
+                <button
+                  type="button"
+                  onClick={handleRedeemBonus}
+                  disabled={redeemingBonus}
+                  className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {redeemingBonus ? "..." : "Resgatar"}
+                </button>
+              </div>
+
+              {bonusSuccess ? (
+                <p className="mt-2 text-[11px] text-emerald-300">
+                  {bonusSuccess}
+                </p>
+              ) : null}
+
+              {bonusError ? (
+                <p className="mt-2 text-[11px] text-red-400">{bonusError}</p>
+              ) : null}
+            </div>
+          </div>
+
           <button
             type="button"
             onClick={handleLogout}
@@ -284,7 +364,6 @@ export default function PerfilPage() {
               {history.map((item) => {
                 if (item.sourceType === "transaction") {
                   const isDeposit = item.type === "deposito";
-                  const isWithdraw = item.type === "levantamento";
 
                   return (
                     <div

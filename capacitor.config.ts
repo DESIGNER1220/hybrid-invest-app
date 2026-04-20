@@ -1,13 +1,9 @@
-import type { CapacitorConfig } from "@capacitor/cli";
+import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: "com.hybridinvest.app",
-  appName: "Hybrid Invest",
-  webDir: "public",
-  server: {
-    url: "https://www.hybrunimoz.mom",
-    cleartext: false,
-  },
+  appId: 'com.hybridinvest.app',
+  appName: 'HYBRID ',
+  webDir: 'public'
 };
 
 export default config;

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Download, Smartphone, ShieldCheck, ArrowLeft } from "lucide-react";
+import { ArrowLeft, ShieldCheck, Smartphone } from "lucide-react";
 import { useRouter } from "next/navigation";
+import DownloadAppButton from "../components/DownloadAppButton";
 
 export default function BaixarAppPage() {
   const router = useRouter();
@@ -40,8 +41,7 @@ export default function BaixarAppPage() {
 
           <p className="mt-3 text-center text-sm leading-relaxed text-slate-300">
             Baixe e instale o aplicativo oficial da{" "}
-            <span className="font-bold text-amber-400">Hybrid Invest</span> no
-            seu telefone Android.
+            <span className="font-bold text-amber-400">Hybrid Invest</span>.
           </p>
 
           <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
@@ -60,23 +60,18 @@ export default function BaixarAppPage() {
             </div>
           </div>
 
-          <a
-            href="/app/hybrid-invest.apk"
-            download
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-400 px-4 py-4 text-base font-bold text-black transition hover:bg-amber-300"
-          >
-            <Download size={18} />
-            Baixar App Android
-          </a>
+          <div className="mt-5">
+            <DownloadAppButton />
+          </div>
 
           <div className="mt-5 space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
             <p className="text-sm font-bold text-white">Como instalar</p>
 
             <div className="space-y-2 text-xs leading-relaxed text-slate-300">
-              <p>1. Clique em “Baixar App Android”.</p>
-              <p>2. Aguarde o ficheiro terminar de baixar.</p>
-              <p>3. Abra o APK baixado no telefone.</p>
-              <p>4. Se o Android pedir permissão, autorize instalar.</p>
+              <p>1. Clique em “Instalar App”.</p>
+              <p>2. Aguarde o APK terminar de baixar.</p>
+              <p>3. Abra o ficheiro baixado no telefone.</p>
+              <p>4. Autorize instalar apps desta fonte, se o Android pedir.</p>
               <p>5. Termine a instalação e abra a app.</p>
             </div>
           </div>
