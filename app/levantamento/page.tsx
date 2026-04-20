@@ -1,230 +1,335 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
+import { useRouter } from "next/navigation";
+import { AlertCircle, ArrowUpCircle, Crown, Percent, Wallet } from "lucide-react";
+
 import { auth } from "../lib/firebase";
-import {
-  createTransaction,
-  getUserInvestments,
-  getUserProfile,
-} from "../services/authService";
+import { createTransaction, getUserProfile } from "../services/authService";
 import BottomNav from "../components/BottomNav";
 
-function isWithdrawalAllowedNow() {
-  const now = new Date();
-  const day = now.getDay();
-  const hour = now.getHours();
+type UserProfile = {
+  balance?: number;
+  bonus?: number;
+  totalProfit?: number;
+  vipLevel?: string;
+  withdrawalFeePercent?: number;
+};
 
-  const isMondayToSaturday = day >= 1 && day <= 6;
-  const isAllowedHour = hour >= 9 && hour < 22;
+function round2(value: number) {
+  return Math.round(value * 100) / 100;
+}
 
-  return isMondayToSaturday && isAllowedHour;
+function formatMoney(value: number) {
+  return Number(value || 0).toLocaleString("pt-MZ");
 }
 
 export default function LevantamentoPage() {
   const router = useRouter();
 
-  const [uid, setUid] = useState("");
-  const [userPhone, setUserPhone] = useState("");
-  const [amount, setAmount] = useState("");
-  const [balance, setBalance] = useState(0);
-  const [profit, setProfit] = useState(0);
-  const [bonus, setBonus] = useState(0);
-  const [hasInvestment, setHasInvestment] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [footerError, setFooterError] = useState("");
+
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  const [phone, setPhone] = useState("");
+  const [method, setMethod] = useState<"M-Pesa" | "E-mola">("M-Pesa");
+  const [amount, setAmount] = useState("");
+
+  const [successMsg, setSuccessMsg] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  async function loadProfile(uid: string) {
+    const data = await getUserProfile(uid);
+    setProfile((data || null) as UserProfile | null);
+  }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         router.push("/login");
         return;
       }
 
       try {
-        setUid(user.uid);
-
-        const [profile, investments] = await Promise.all([
-          getUserProfile(user.uid),
-          getUserInvestments(user.uid),
-        ]);
-
-        const userProfile: any = profile;
-        const userInvestments: any[] = Array.isArray(investments) ? investments : [];
-
-        setUserPhone(userProfile?.phone || "");
-        setBalance(Number(userProfile?.balance ?? 0));
-        setProfit(Number(userProfile?.totalProfit ?? 0));
-        setBonus(Number(userProfile?.bonus ?? 0));
-        setHasInvestment(userInvestments.length > 0);
+        await loadProfile(user.uid);
       } catch (error) {
-        console.error("Erro ao carregar levantamento:", error);
+        console.error("Erro ao carregar perfil:", error);
+      } finally {
+        setLoading(false);
       }
     });
 
-    return () => unsubscribe();
+    return () => unsub();
   }, [router]);
+
+  const availableBalance = useMemo(() => {
+    return round2(
+      Number(profile?.balance ?? 0) +
+        Number(profile?.bonus ?? 0) +
+        Number(profile?.totalProfit ?? 0)
+    );
+  }, [profile]);
+
+  const withdrawalFeePercent = useMemo(() => {
+    return Number(profile?.withdrawalFeePercent ?? 12);
+  }, [profile]);
+
+  const amountNumber = useMemo(() => {
+    return Number(amount || 0);
+  }, [amount]);
+
+  const feeAmount = useMemo(() => {
+    if (!amountNumber || amountNumber <= 0) return 0;
+    return round2(amountNumber * (withdrawalFeePercent / 100));
+  }, [amountNumber, withdrawalFeePercent]);
+
+  const totalDeduction = useMemo(() => {
+    if (!amountNumber || amountNumber <= 0) return 0;
+    return round2(amountNumber + feeAmount);
+  }, [amountNumber, feeAmount]);
+
+  const netReceive = useMemo(() => {
+    if (!amountNumber || amountNumber <= 0) return 0;
+    return round2(amountNumber);
+  }, [amountNumber]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    setFooterError("");
-    setSuccessMessage("");
+    const uid = auth.currentUser?.uid;
 
     if (!uid) {
-      setFooterError("Utilizador não autenticado");
-      return;
-    }
-
-    if (!hasInvestment) {
-      setFooterError("Alugue primeiro");
-      return;
-    }
-
-    if (!amount || Number(amount) <= 0) {
-      setFooterError("Informe um valor válido");
-      return;
-    }
-
-    if (Number(amount) < 150) {
-      setFooterError("Levantamento mínimo é 150 MZN");
-      return;
-    }
-
-    if (!isWithdrawalAllowedNow()) {
-      setFooterError("Levantamento: segunda a sábado, 9h às 22h");
-      return;
-    }
-
-    const totalAvailable = balance + profit + bonus;
-
-    if (Number(amount) > totalAvailable) {
-      setFooterError("Sem fundos");
+      setErrorMsg("Usuário não autenticado.");
       return;
     }
 
     try {
       setSubmitting(true);
+      setErrorMsg("");
+      setSuccessMsg("");
+
+      if (!phone.trim()) {
+        throw new Error("Informe o número de telefone.");
+      }
+
+      if (!amountNumber || amountNumber <= 0) {
+        throw new Error("Informe um valor válido.");
+      }
+
+      if (totalDeduction > availableBalance) {
+        throw new Error(
+          `Saldo insuficiente. Necessário: ${formatMoney(totalDeduction)} MZN`
+        );
+      }
 
       await createTransaction({
         uid,
         type: "levantamento",
-        method: "M-Pesa",
-        phone: userPhone,
-        amount: Number(amount),
+        method,
+        phone: phone.trim(),
+        amount: amountNumber,
       });
 
-      setSuccessMessage("Sucesso");
+      setSuccessMsg("Pedido de levantamento enviado com sucesso.");
+      setAmount("");
 
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 1500);
+      await loadProfile(uid);
     } catch (error: any) {
-      setFooterError(error?.message || "Erro ao enviar levantamento");
+      setErrorMsg(error?.message || "Erro ao solicitar levantamento.");
     } finally {
       setSubmitting(false);
     }
   }
 
-  const totalAvailable = balance + profit + bonus;
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black p-4 text-white">
+        Carregando...
+      </main>
+    );
+  }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-3 pb-28 pt-3 text-white">
-      <div className="mx-auto max-w-md space-y-3">
-        <h1 className="text-xl font-bold">Levantamento</h1>
-
-        {successMessage && (
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
-            <p className="text-lg font-bold text-emerald-400">{successMessage}</p>
+    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black px-3 pt-3 pb-24 text-white">
+      <div className="mx-auto max-w-sm space-y-3">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg">
+          <div className="flex items-center gap-2">
+            <ArrowUpCircle size={18} className="text-red-400" />
+            <h1 className="text-lg font-bold">Levantamento</h1>
           </div>
-        )}
-
-        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-          <p className="text-xs text-slate-400">Saldo disponível</p>
-          <h2 className="mt-1 text-lg font-bold text-emerald-400">
-            {totalAvailable.toLocaleString("pt-MZ")} MZN
-          </h2>
+          <p className="mt-1 text-xs text-slate-400">
+            Solicite o seu levantamento e veja a taxa aplicada conforme o seu nível VIP.
+          </p>
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-          <p className="text-xs text-slate-400">Regras de levantamento</p>
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg">
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between gap-3">
+              <span className="flex items-center gap-1 text-slate-400">
+                <Wallet size={14} />
+                Saldo disponível
+              </span>
+              <span className="font-semibold text-emerald-400">
+                {formatMoney(availableBalance)} MZN
+              </span>
+            </div>
 
-          <div className="mt-3 space-y-2 rounded-lg bg-slate-950/40 p-3 text-xs text-slate-300">
-            <p>
-              Valor mínimo:{" "}
-              <span className="font-semibold text-amber-400">150 MZN</span>
-            </p>
-            <p>
-              Horário:{" "}
-              <span className="font-semibold text-amber-400">
-                segunda a sábado, 9h às 22h
+            <div className="flex justify-between gap-3">
+              <span className="flex items-center gap-1 text-slate-400">
+                <Crown size={14} />
+                Nível VIP
               </span>
-            </p>
-            <p>
-              Condição:{" "}
-              <span className="font-semibold text-amber-400">
-                deve alugar primeiro
+              <span className="font-semibold text-violet-300">
+                {profile?.vipLevel || "VIP1"}
               </span>
-            </p>
+            </div>
+
+            <div className="flex justify-between gap-3">
+              <span className="flex items-center gap-1 text-slate-400">
+                <Percent size={14} />
+                Taxa de levantamento
+              </span>
+              <span className="font-semibold text-orange-300">
+                {withdrawalFeePercent}%
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-          <p className="text-xs text-slate-400">O valor será enviado para</p>
+        <div className="rounded-2xl border border-orange-500/20 bg-orange-500/10 p-4 shadow-lg">
+          <div className="mb-3 flex items-center gap-2">
+            <AlertCircle size={16} className="text-orange-300" />
+            <h2 className="text-sm font-bold text-orange-300">
+              Tabela VIP
+            </h2>
+          </div>
 
-          <div className="mt-3 space-y-2 rounded-lg bg-slate-950/40 p-3">
+          <div className="space-y-2 text-[11px] text-white">
+            <div className="flex justify-between rounded-lg bg-black/20 px-3 py-2">
+              <span>VIP1</span>
+              <span>0 a 2 convidados • 12%</span>
+            </div>
+            <div className="flex justify-between rounded-lg bg-black/20 px-3 py-2">
+              <span>VIP2</span>
+              <span>3 convidados • 10%</span>
+            </div>
+            <div className="flex justify-between rounded-lg bg-black/20 px-3 py-2">
+              <span>VIP3</span>
+              <span>5 convidados • 6%</span>
+            </div>
+            <div className="flex justify-between rounded-lg bg-black/20 px-3 py-2">
+              <span>VIP4</span>
+              <span>8 convidados • 4%</span>
+            </div>
+            <div className="flex justify-between rounded-lg bg-black/20 px-3 py-2">
+              <span>VIP5</span>
+              <span>10+ convidados • 0%</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg">
+          {successMsg && (
+            <div className="mb-4 rounded-xl border border-emerald-400 bg-emerald-500/20 px-3 py-2 text-center text-sm font-bold text-emerald-300">
+              {successMsg}
+            </div>
+          )}
+
+          {errorMsg && (
+            <div className="mb-4 rounded-xl border border-red-400 bg-red-500/20 px-3 py-2 text-center text-sm text-red-300">
+              {errorMsg}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <p className="text-[11px] text-slate-400">Método</p>
-              <p className="text-sm font-semibold text-amber-400">M-Pesa</p>
+              <label className="mb-1 block text-sm text-slate-300">
+                Método
+              </label>
+              <select
+                value={method}
+                onChange={(e) => setMethod(e.target.value as "M-Pesa" | "E-mola")}
+                className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
+              >
+                <option value="M-Pesa">M-Pesa</option>
+                <option value="E-mola">E-mola</option>
+              </select>
             </div>
 
             <div>
-              <p className="text-[11px] text-slate-400">Seu número</p>
-              <p className="text-sm font-semibold text-white">
-                {userPhone || "Número não disponível"}
-              </p>
+              <label className="mb-1 block text-sm text-slate-300">
+                Número de telefone
+              </label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Digite o número"
+                className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
+                required
+              />
             </div>
-          </div>
 
-          <form onSubmit={handleSubmit} className="mt-3 space-y-3">
             <div>
-              <label className="mb-1 block text-xs text-slate-300">Valor</label>
+              <label className="mb-1 block text-sm text-slate-300">
+                Valor do levantamento
+              </label>
               <input
                 type="number"
-                min="150"
-                step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="Ex: 500"
-                className="w-full rounded-lg border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-white outline-none"
+                placeholder="Digite o valor"
+                className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
+                min="1"
+                step="0.01"
+                required
               />
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-xs">
+              <div className="flex justify-between py-1">
+                <span className="text-slate-400">Valor solicitado</span>
+                <span className="font-bold text-white">
+                  {formatMoney(amountNumber)} MZN
+                </span>
+              </div>
+
+              <div className="flex justify-between py-1">
+                <span className="text-slate-400">
+                  Taxa ({withdrawalFeePercent}%)
+                </span>
+                <span className="font-bold text-orange-300">
+                  {formatMoney(feeAmount)} MZN
+                </span>
+              </div>
+
+              <div className="flex justify-between py-1">
+                <span className="text-slate-400">Total cortado</span>
+                <span className="font-bold text-red-300">
+                  {formatMoney(totalDeduction)} MZN
+                </span>
+              </div>
+
+              <div className="mt-2 flex justify-between border-t border-white/10 pt-2">
+                <span className="text-slate-300">Vai receber</span>
+                <span className="text-sm font-bold text-emerald-400">
+                  {formatMoney(netReceive)} MZN
+                </span>
+              </div>
             </div>
 
             <button
               type="submit"
               disabled={submitting}
-              className="flex w-full items-center justify-center rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black disabled:opacity-70"
+              className="w-full rounded-xl bg-red-500 py-3 text-lg font-bold text-white transition hover:bg-red-400 disabled:opacity-70"
             >
-              {submitting ? (
-                <span className="flex items-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/30 border-t-black" />
-                  Processando...
-                </span>
-              ) : (
-                "Confirmar levantamento"
-              )}
+              {submitting ? "Enviando..." : "Solicitar levantamento"}
             </button>
           </form>
         </div>
       </div>
-
-      {footerError && (
-        <div className="fixed bottom-20 left-1/2 z-40 w-[92%] max-w-md -translate-x-1/2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-center shadow-lg backdrop-blur-sm">
-          <p className="text-sm font-bold text-red-400">{footerError}</p>
-        </div>
-      )}
 
       <BottomNav />
     </main>
