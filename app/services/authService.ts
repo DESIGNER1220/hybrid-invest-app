@@ -325,6 +325,39 @@ export async function countReferralsByCode(referralCode: string) {
   return snapshot.size;
 }
 
+async function userHasAnyInvestment(uid: string) {
+  const q = query(
+    collection(db, "investments"),
+    where("uid", "==", uid),
+    limit(1)
+  );
+  const snapshot = await getDocs(q);
+  return !snapshot.empty;
+}
+
+export async function countActiveReferralInvestorsByCode(referralCode: string) {
+  const normalizedCode = String(referralCode || "").trim().toUpperCase();
+
+  if (!normalizedCode) return 0;
+
+  const q = query(
+    collection(db, "users"),
+    where("referredBy", "==", normalizedCode)
+  );
+
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) return 0;
+
+  const checks = await Promise.all(
+    snapshot.docs.map(async (userDoc) => {
+      return await userHasAnyInvestment(userDoc.id);
+    })
+  );
+
+  return checks.filter(Boolean).length;
+}
+
 export function getVipLevelByReferrals(referrals: number) {
   if (referrals >= 10) return "VIP5";
   if (referrals >= 8) return "VIP4";
@@ -526,12 +559,6 @@ export async function syncUserProfit(uid: string) {
 }
 
 export async function getUserProfile(uid: string) {
-  try {
-    await syncUserProfit(uid);
-  } catch (error) {
-    console.error("Erro ao sincronizar lucro:", error);
-  }
-
   const docRef = doc(db, "users", uid);
   const docSnap = await getDoc(docRef);
 
@@ -543,20 +570,14 @@ export async function getUserProfile(uid: string) {
     .trim()
     .toUpperCase();
 
-  const storedReferrals = Number(userData.referrals ?? 0);
-  const realReferrals = referralCode
+  const totalRegisteredReferrals = referralCode
     ? await countReferralsByCode(referralCode)
     : 0;
 
-  const referrals = Math.max(storedReferrals, realReferrals);
-  const vipLevel = getVipLevelByReferrals(referrals);
-  const withdrawalFeePercent = getWithdrawalFeePercentByReferrals(referrals);
-
   return {
     ...userData,
-    referrals,
-    vipLevel,
-    withdrawalFeePercent,
+    referralCode,
+    referrals: totalRegisteredReferrals,
   };
 }
 
@@ -673,35 +694,6 @@ export async function approveTransaction(transactionId: string) {
       tx.update(userRef, {
         balance: round2(currentBalance + amount),
       });
-
-      const referredBy = userData.referredBy;
-
-      if (referredBy) {
-        const refQuery = query(
-          collection(db, "users"),
-          where("referralCode", "==", referredBy)
-        );
-        const refSnap = await getDocs(refQuery);
-
-        if (!refSnap.empty) {
-          const referrerDoc = refSnap.docs[0];
-          const referrerData: any = referrerDoc.data();
-          const commission = round2(amount * 0.05);
-
-          tx.update(referrerDoc.ref, {
-            bonus: round2(Number(referrerData.bonus ?? 0) + commission),
-          });
-
-          await addDoc(collection(db, "referralEarnings"), {
-            referrerId: referrerDoc.id,
-            fromUserId: transactionData.uid,
-            depositTransactionId: transactionId,
-            depositAmount: amount,
-            commissionAmount: commission,
-            createdAt: serverTimestamp(),
-          });
-        }
-      }
     }
 
     if (transactionData.type === "levantamento") {
@@ -709,16 +701,12 @@ export async function approveTransaction(transactionId: string) {
         .trim()
         .toUpperCase();
 
-      const realReferrals = referralCode
-        ? await countReferralsByCode(referralCode)
+      const activeReferralInvestors = referralCode
+        ? await countActiveReferralInvestorsByCode(referralCode)
         : 0;
 
-      const referrals = Math.max(
-        Number(userData.referrals ?? 0),
-        Number(realReferrals ?? 0)
-      );
-
-      const feePercent = getWithdrawalFeePercentByReferrals(referrals);
+      const feePercent =
+        getWithdrawalFeePercentByReferrals(activeReferralInvestors);
       const feeAmount = round2(amount * (feePercent / 100));
       const totalDeduction = round2(amount + feeAmount);
 
@@ -761,7 +749,6 @@ export async function approveTransaction(transactionId: string) {
         balance: round2(newBalance),
         totalProfit: round2(newTotalProfit),
         bonus: round2(newBonus),
-        referrals: referrals,
       });
 
       tx.update(transactionRef, {
@@ -817,17 +804,15 @@ export async function buyInvestmentPlan(params: {
     }
 
     const userData: any = userSnap.data();
-    const currentBalance = round2(Number(userData.balance ?? 0));
-    const planAmount = round2(Number(plan.amount ?? 0));
+    const currentBalance = Number(userData.balance ?? 0);
+    const planAmount = Number(plan.amount ?? 0);
 
     if (currentBalance < planAmount) {
-      throw new Error(
-        `Saldo insuficiente. Saldo atual: ${currentBalance} MZN | Necessário: ${planAmount} MZN`
-      );
+      throw new Error("Saldo insuficiente.");
     }
 
     tx.update(userRef, {
-      balance: round2(currentBalance - planAmount),
+      balance: currentBalance - planAmount,
     });
   });
 
@@ -852,17 +837,13 @@ export async function buyInvestmentPlan(params: {
     createdAt: serverTimestamp(),
   });
 
-  await syncUserProfit(uid);
-
   return {
     success: true,
-    message: "Alugado com sucesso",
+    message: "Alugado com sucesso (modo teste)",
   };
 }
 
 export async function getUserInvestments(uid: string) {
-  await syncUserProfit(uid);
-
   const q = query(collection(db, "investments"), where("uid", "==", uid));
   const snapshot = await getDocs(q);
 
@@ -1028,7 +1009,7 @@ export async function spinWheel(uid: string) {
   }
 
   const userDataBefore: any = userSnapBefore.data();
-  const realReferrals = await countReferralsByCode(
+  const activeInvestorReferrals = await countActiveReferralInvestorsByCode(
     String(userDataBefore.referralCode || "").trim().toUpperCase()
   );
 
@@ -1039,10 +1020,7 @@ export async function spinWheel(uid: string) {
     }
 
     const userData: any = userSnap.data();
-    const referrals = Math.max(
-      Number(userData.referrals ?? 0),
-      Number(realReferrals ?? 0)
-    );
+    const referrals = Number(activeInvestorReferrals ?? 0);
 
     if (referrals < 1) {
       throw new Error("Convide pelo menos 1 amigo");
@@ -1175,14 +1153,13 @@ export async function getSupportUsers() {
 export async function sendGlobalChatMessage(params: {
   uid: string;
   text?: string;
-  imageDataUrl?: string;
+  imageFile?: File | null;
 }) {
-  const { uid, text, imageDataUrl } = params;
+  const { uid, text, imageFile } = params;
 
   const cleanText = text?.trim() || "";
-  const cleanImage = imageDataUrl || "";
 
-  if (!cleanText && !cleanImage) {
+  if (!cleanText && !imageFile) {
     throw new Error("Escreva uma mensagem ou selecione uma imagem.");
   }
 
@@ -1201,12 +1178,32 @@ export async function sendGlobalChatMessage(params: {
   const senderName =
     senderRole === "admin" ? "Administrador" : "Número de telefone";
 
+  let imageDataUrl = "";
+
+  if (imageFile) {
+    if (!imageFile.type.startsWith("image/")) {
+      throw new Error("Apenas imagens são permitidas.");
+    }
+
+    const maxSize = 1024 * 1024;
+    if (imageFile.size > maxSize) {
+      throw new Error("A imagem final deve ter no máximo 1MB.");
+    }
+
+    imageDataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error("Erro ao ler imagem."));
+      reader.readAsDataURL(imageFile);
+    });
+  }
+
   await addDoc(collection(db, "globalChatMessages"), {
     uid,
     senderName,
     senderRole,
     text: cleanText,
-    imageDataUrl: cleanImage,
+    imageDataUrl,
     createdAt: serverTimestamp(),
   });
 }
@@ -1272,6 +1269,42 @@ export async function getTodayHistory(uid: string) {
       const bSec = Number(b.createdAt?.seconds ?? 0);
       return bSec - aSec;
     });
+}
+
+export async function getFullHistory(uid: string) {
+  const [transactionsSnap, referralSnap, wheelSnap] = await Promise.all([
+    getDocs(query(collection(db, "transactions"), where("uid", "==", uid))),
+    getDocs(
+      query(collection(db, "referralEarnings"), where("referrerId", "==", uid))
+    ),
+    getDocs(query(collection(db, "wheelSpins"), where("uid", "==", uid))),
+  ]);
+
+  const transactions = transactionsSnap.docs.map((item) => ({
+    id: item.id,
+    sourceType: "transaction" as const,
+    ...item.data(),
+  }));
+
+  const referralEarnings = referralSnap.docs.map((item) => ({
+    id: item.id,
+    sourceType: "referral" as const,
+    ...item.data(),
+  }));
+
+  const wheelSpins = wheelSnap.docs.map((item) => ({
+    id: item.id,
+    sourceType: "wheel" as const,
+    ...item.data(),
+  }));
+
+  return [...transactions, ...referralEarnings, ...wheelSpins].sort(
+    (a: any, b: any) => {
+      const aSec = Number(a.createdAt?.seconds ?? 0);
+      const bSec = Number(b.createdAt?.seconds ?? 0);
+      return bSec - aSec;
+    }
+  );
 }
 
 export async function getAllUsers() {
