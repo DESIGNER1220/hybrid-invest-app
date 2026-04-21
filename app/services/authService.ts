@@ -206,6 +206,7 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
     dailyRate: 8.5,
     durationDays: 60,
     finalReturn: 305000,
+    isPremium: true,
   },
 ];
 
@@ -325,16 +326,6 @@ export async function countReferralsByCode(referralCode: string) {
   return snapshot.size;
 }
 
-async function userHasAnyInvestment(uid: string) {
-  const q = query(
-    collection(db, "investments"),
-    where("uid", "==", uid),
-    limit(1)
-  );
-  const snapshot = await getDocs(q);
-  return !snapshot.empty;
-}
-
 export async function countActiveReferralInvestorsByCode(referralCode: string) {
   const normalizedCode = String(referralCode || "").trim().toUpperCase();
 
@@ -347,15 +338,15 @@ export async function countActiveReferralInvestorsByCode(referralCode: string) {
 
   const snapshot = await getDocs(q);
 
-  if (snapshot.empty) return 0;
+  let total = 0;
+  snapshot.forEach((userDoc) => {
+    const data: any = userDoc.data();
+    if (data?.hasDeposited === true) {
+      total += 1;
+    }
+  });
 
-  const checks = await Promise.all(
-    snapshot.docs.map(async (userDoc) => {
-      return await userHasAnyInvestment(userDoc.id);
-    })
-  );
-
-  return checks.filter(Boolean).length;
+  return total;
 }
 
 export function getVipLevelByReferrals(referrals: number) {
@@ -372,6 +363,42 @@ export function getWithdrawalFeePercentByReferrals(referrals: number) {
   if (referrals >= 5) return 6;
   if (referrals >= 3) return 10;
   return 12;
+}
+
+async function syncVipDataForUser(uid: string) {
+  const userRef = doc(db, "users", uid);
+  const userSnap = await getDoc(userRef);
+
+  if (!userSnap.exists()) return null;
+
+  const userData: any = userSnap.data();
+  const referralCode = String(userData.referralCode || "").trim().toUpperCase();
+
+  const totalRegisteredReferrals = referralCode
+    ? await countReferralsByCode(referralCode)
+    : 0;
+
+  const activeReferralInvestors = referralCode
+    ? await countActiveReferralInvestorsByCode(referralCode)
+    : 0;
+
+  const vipLevel = getVipLevelByReferrals(activeReferralInvestors);
+  const withdrawalFeePercent =
+    getWithdrawalFeePercentByReferrals(activeReferralInvestors);
+
+  await updateDoc(userRef, {
+    referrals: totalRegisteredReferrals,
+    activeReferralInvestors,
+    vipLevel,
+    withdrawalFeePercent,
+  });
+
+  return {
+    referrals: totalRegisteredReferrals,
+    activeReferralInvestors,
+    vipLevel,
+    withdrawalFeePercent,
+  };
 }
 
 function getWheelRewardByInvestment(totalInvested: number) {
@@ -497,6 +524,10 @@ export async function registerUser(params: {
     bonus: 0,
     totalProfit: 0,
     referrals: 0,
+    activeReferralInvestors: 0,
+    vipLevel: "VIP1",
+    withdrawalFeePercent: 12,
+    hasDeposited: false,
     role,
     blocked: false,
     spinsUsedToday: 0,
@@ -559,6 +590,18 @@ export async function syncUserProfit(uid: string) {
 }
 
 export async function getUserProfile(uid: string) {
+  try {
+    await syncUserProfit(uid);
+  } catch (error) {
+    console.error("Erro ao sincronizar lucro:", error);
+  }
+
+  try {
+    await syncVipDataForUser(uid);
+  } catch (error) {
+    console.error("Erro ao sincronizar VIP:", error);
+  }
+
   const docRef = doc(db, "users", uid);
   const docSnap = await getDoc(docRef);
 
@@ -566,18 +609,13 @@ export async function getUserProfile(uid: string) {
 
   const userData: any = docSnap.data();
 
-  const referralCode = String(userData.referralCode || "")
-    .trim()
-    .toUpperCase();
-
-  const totalRegisteredReferrals = referralCode
-    ? await countReferralsByCode(referralCode)
-    : 0;
-
   return {
     ...userData,
-    referralCode,
-    referrals: totalRegisteredReferrals,
+    referralCode: String(userData.referralCode || "").trim().toUpperCase(),
+    referrals: Number(userData.referrals ?? 0),
+    activeReferralInvestors: Number(userData.activeReferralInvestors ?? 0),
+    vipLevel: String(userData.vipLevel || "VIP1"),
+    withdrawalFeePercent: Number(userData.withdrawalFeePercent ?? 12),
   };
 }
 
@@ -693,17 +731,14 @@ export async function approveTransaction(transactionId: string) {
     if (transactionData.type === "deposito") {
       tx.update(userRef, {
         balance: round2(currentBalance + amount),
+        hasDeposited: true,
       });
     }
 
     if (transactionData.type === "levantamento") {
-      const referralCode = String(userData.referralCode || "")
-        .trim()
-        .toUpperCase();
-
-      const activeReferralInvestors = referralCode
-        ? await countActiveReferralInvestorsByCode(referralCode)
-        : 0;
+      const activeReferralInvestors = Number(
+        userData.activeReferralInvestors ?? 0
+      );
 
       const feePercent =
         getWithdrawalFeePercentByReferrals(activeReferralInvestors);
@@ -766,10 +801,40 @@ export async function approveTransaction(transactionId: string) {
   });
 
   const transactionSnap = await getDoc(transactionRef);
-  if (transactionSnap.exists()) {
-    const transactionData: any = transactionSnap.data();
-    if (transactionData?.uid) {
-      await syncUserProfit(transactionData.uid);
+  if (!transactionSnap.exists()) return;
+
+  const transactionData: any = transactionSnap.data();
+  const affectedUid = String(transactionData?.uid || "");
+
+  if (!affectedUid) return;
+
+  await syncUserProfit(affectedUid);
+  await syncVipDataForUser(affectedUid);
+
+  if (transactionData.type === "deposito") {
+    const depositedUserRef = doc(db, "users", affectedUid);
+    const depositedUserSnap = await getDoc(depositedUserRef);
+
+    if (depositedUserSnap.exists()) {
+      const depositedUserData: any = depositedUserSnap.data();
+      const referredBy = String(depositedUserData?.referredBy || "")
+        .trim()
+        .toUpperCase();
+
+      if (referredBy) {
+        const referrerQuery = query(
+          collection(db, "users"),
+          where("referralCode", "==", referredBy),
+          limit(1)
+        );
+
+        const referrerSnap = await getDocs(referrerQuery);
+
+        if (!referrerSnap.empty) {
+          const referrerUid = referrerSnap.docs[0].id;
+          await syncVipDataForUser(referrerUid);
+        }
+      }
     }
   }
 }
@@ -804,15 +869,48 @@ export async function buyInvestmentPlan(params: {
     }
 
     const userData: any = userSnap.data();
-    const currentBalance = Number(userData.balance ?? 0);
-    const planAmount = Number(plan.amount ?? 0);
 
-    if (currentBalance < planAmount) {
-      throw new Error("Saldo insuficiente.");
+    let currentBalance = round2(Number(userData.balance ?? 0));
+    let currentTotalProfit = round2(Number(userData.totalProfit ?? 0));
+    let currentBonus = round2(Number(userData.bonus ?? 0));
+
+    const planAmount = round2(Number(plan.amount ?? 0));
+    const available = round2(currentBalance + currentTotalProfit + currentBonus);
+
+    if (available < planAmount) {
+      throw new Error(
+        `Saldo insuficiente. Disponível: ${available} MZN | Necessário: ${planAmount} MZN`
+      );
+    }
+
+    let remaining = planAmount;
+
+    if (currentBalance >= remaining) {
+      currentBalance -= remaining;
+      remaining = 0;
+    } else {
+      remaining -= currentBalance;
+      currentBalance = 0;
+    }
+
+    if (remaining > 0) {
+      if (currentTotalProfit >= remaining) {
+        currentTotalProfit -= remaining;
+        remaining = 0;
+      } else {
+        remaining -= currentTotalProfit;
+        currentTotalProfit = 0;
+      }
+    }
+
+    if (remaining > 0) {
+      currentBonus = Math.max(0, currentBonus - remaining);
     }
 
     tx.update(userRef, {
-      balance: currentBalance - planAmount,
+      balance: round2(currentBalance),
+      totalProfit: round2(currentTotalProfit),
+      bonus: round2(currentBonus),
     });
   });
 
@@ -839,7 +937,7 @@ export async function buyInvestmentPlan(params: {
 
   return {
     success: true,
-    message: "Alugado com sucesso (modo teste)",
+    message: "Alugado com sucesso",
   };
 }
 
@@ -1009,7 +1107,7 @@ export async function spinWheel(uid: string) {
   }
 
   const userDataBefore: any = userSnapBefore.data();
-  const activeInvestorReferrals = await countActiveReferralInvestorsByCode(
+  const activeDepositedReferrals = await countActiveReferralInvestorsByCode(
     String(userDataBefore.referralCode || "").trim().toUpperCase()
   );
 
@@ -1020,10 +1118,10 @@ export async function spinWheel(uid: string) {
     }
 
     const userData: any = userSnap.data();
-    const referrals = Number(activeInvestorReferrals ?? 0);
+    const referrals = Number(activeDepositedReferrals ?? 0);
 
     if (referrals < 1) {
-      throw new Error("Convide pelo menos 1 amigo");
+      throw new Error("Convide pelo menos 1 amigo com depósito aprovado");
     }
 
     const lastSpinDate = userData.lastSpinDate ?? "";
@@ -1049,6 +1147,9 @@ export async function spinWheel(uid: string) {
       lastSpinAt: serverTimestamp(),
       spinsUsedToday: previousSpinsUsedToday + 1,
       referrals: referrals,
+      activeReferralInvestors: referrals,
+      vipLevel: getVipLevelByReferrals(referrals),
+      withdrawalFeePercent: getWithdrawalFeePercentByReferrals(referrals),
     };
 
     if (reward > 0) {

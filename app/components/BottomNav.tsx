@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { House, CircleDollarSign, Gift, User } from "lucide-react";
+import { House, MessageCircle, Gift, User } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function BottomNav() {
@@ -27,8 +27,12 @@ export default function BottomNav() {
   }, []);
 
   const isInicio = pathname === "/" || pathname === "/inicio";
-  const isAtivos = pathname === "/ativos";
-  const isRoda = pathname === "/roda" || pathname === "/chat-global";
+  const isChat = pathname === "/chat-global";
+  const isInvestimentos =
+    pathname === "/investimentos" ||
+    pathname === "/aluguel" ||
+    pathname === "/planos";
+  const isRoda = pathname === "/roda";
   const isPerfil = pathname === "/perfil";
 
   return (
@@ -45,28 +49,35 @@ export default function BottomNav() {
         </Link>
 
         <Link
-          href="/ativos"
-          className={`flex w-16 flex-col items-center justify-center gap-1 ${
-            isAtivos ? "text-emerald-400" : "text-slate-400"
+          href="/chat-global"
+          className={`relative flex w-16 flex-col items-center justify-center gap-1 ${
+            isChat ? "text-emerald-400" : "text-slate-400"
           }`}
         >
-          <CircleDollarSign size={24} />
-          <span className="text-xs font-medium">Ativos</span>
+          <div className="relative">
+            <MessageCircle size={24} />
+            {chatUnread > 0 ? (
+              <span className="absolute -right-2 -top-2 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                {chatUnread > 99 ? "99+" : chatUnread}
+              </span>
+            ) : null}
+          </div>
+          <span className="text-xs font-medium">Chat</span>
         </Link>
 
         <Link
-          href="/roda"
+          href="/investimentos"
           className="relative -mt-8 flex h-24 w-24 flex-col items-center justify-center"
         >
-          <div className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-[#020817] bg-amber-500 text-xl font-bold text-black shadow-lg">
+          <div
+            className={`flex h-20 w-20 items-center justify-center rounded-full border-4 border-[#020817] text-xl font-bold shadow-lg ${
+              isInvestimentos
+                ? "bg-emerald-500 text-black"
+                : "bg-amber-500 text-black"
+            }`}
+          >
             HYBR
           </div>
-
-          {chatUnread > 0 ? (
-            <span className="absolute right-2 top-2 flex min-h-[22px] min-w-[22px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-              {chatUnread > 99 ? "99+" : chatUnread}
-            </span>
-          ) : null}
         </Link>
 
         <Link
