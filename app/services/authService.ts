@@ -325,16 +325,6 @@ export async function countReferralsByCode(referralCode: string) {
   return snapshot.size;
 }
 
-async function userHasAnyInvestment(uid: string) {
-  const q = query(
-    collection(db, "investments"),
-    where("uid", "==", uid),
-    limit(1)
-  );
-  const snapshot = await getDocs(q);
-  return !snapshot.empty;
-}
-
 export async function countActiveReferralInvestorsByCode(referralCode: string) {
   const normalizedCode = String(referralCode || "").trim().toUpperCase();
 
@@ -342,20 +332,12 @@ export async function countActiveReferralInvestorsByCode(referralCode: string) {
 
   const q = query(
     collection(db, "users"),
-    where("referredBy", "==", normalizedCode)
+    where("referredBy", "==", normalizedCode),
+    where("hasInvested", "==", true)
   );
 
   const snapshot = await getDocs(q);
-
-  if (snapshot.empty) return 0;
-
-  const checks = await Promise.all(
-    snapshot.docs.map(async (userDoc) => {
-      return await userHasAnyInvestment(userDoc.id);
-    })
-  );
-
-  return checks.filter(Boolean).length;
+  return snapshot.size;
 }
 
 export function getVipLevelByReferrals(referrals: number) {
@@ -497,6 +479,7 @@ export async function registerUser(params: {
     bonus: 0,
     totalProfit: 0,
     referrals: 0,
+    hasInvested: false,
     role,
     blocked: false,
     spinsUsedToday: 0,
@@ -559,6 +542,12 @@ export async function syncUserProfit(uid: string) {
 }
 
 export async function getUserProfile(uid: string) {
+  try {
+    await syncUserProfit(uid);
+  } catch (error) {
+    console.error("Erro ao sincronizar lucro:", error);
+  }
+
   const docRef = doc(db, "users", uid);
   const docSnap = await getDoc(docRef);
 
@@ -574,10 +563,21 @@ export async function getUserProfile(uid: string) {
     ? await countReferralsByCode(referralCode)
     : 0;
 
+  const activeReferralInvestors = referralCode
+    ? await countActiveReferralInvestorsByCode(referralCode)
+    : 0;
+
+  const vipLevel = getVipLevelByReferrals(activeReferralInvestors);
+  const withdrawalFeePercent =
+    getWithdrawalFeePercentByReferrals(activeReferralInvestors);
+
   return {
     ...userData,
     referralCode,
     referrals: totalRegisteredReferrals,
+    activeReferralInvestors,
+    vipLevel,
+    withdrawalFeePercent,
   };
 }
 
@@ -804,15 +804,49 @@ export async function buyInvestmentPlan(params: {
     }
 
     const userData: any = userSnap.data();
-    const currentBalance = Number(userData.balance ?? 0);
-    const planAmount = Number(plan.amount ?? 0);
 
-    if (currentBalance < planAmount) {
-      throw new Error("Saldo insuficiente.");
+    let currentBalance = round2(Number(userData.balance ?? 0));
+    let currentTotalProfit = round2(Number(userData.totalProfit ?? 0));
+    let currentBonus = round2(Number(userData.bonus ?? 0));
+
+    const planAmount = round2(Number(plan.amount ?? 0));
+    const available = round2(currentBalance + currentTotalProfit + currentBonus);
+
+    if (available < planAmount) {
+      throw new Error(
+        `Saldo insuficiente. Disponível: ${available} MZN | Necessário: ${planAmount} MZN`
+      );
+    }
+
+    let remaining = planAmount;
+
+    if (currentBalance >= remaining) {
+      currentBalance -= remaining;
+      remaining = 0;
+    } else {
+      remaining -= currentBalance;
+      currentBalance = 0;
+    }
+
+    if (remaining > 0) {
+      if (currentTotalProfit >= remaining) {
+        currentTotalProfit -= remaining;
+        remaining = 0;
+      } else {
+        remaining -= currentTotalProfit;
+        currentTotalProfit = 0;
+      }
+    }
+
+    if (remaining > 0) {
+      currentBonus = Math.max(0, currentBonus - remaining);
     }
 
     tx.update(userRef, {
-      balance: currentBalance - planAmount,
+      balance: round2(currentBalance),
+      totalProfit: round2(currentTotalProfit),
+      bonus: round2(currentBonus),
+      hasInvested: true,
     });
   });
 
@@ -839,7 +873,7 @@ export async function buyInvestmentPlan(params: {
 
   return {
     success: true,
-    message: "Alugado com sucesso (modo teste)",
+    message: "Alugado com sucesso",
   };
 }
 
@@ -1023,7 +1057,7 @@ export async function spinWheel(uid: string) {
     const referrals = Number(activeInvestorReferrals ?? 0);
 
     if (referrals < 1) {
-      throw new Error("Convide pelo menos 1 amigo");
+      throw new Error("Convide pelo menos 1 amigo investidor");
     }
 
     const lastSpinDate = userData.lastSpinDate ?? "";

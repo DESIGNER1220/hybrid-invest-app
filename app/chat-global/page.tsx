@@ -232,6 +232,7 @@ export default function ChatGlobalPage() {
   const router = useRouter();
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const lastMessageIdRef = useRef<string>("");
 
   const [uid, setUid] = useState("");
   const [loading, setLoading] = useState(true);
@@ -251,7 +252,8 @@ export default function ChatGlobalPage() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState<Point | null>(null);
 
-  const [openedImage, setOpenedImage] = useState<string>("");
+  const [openedImage, setOpenedImage] = useState("");
+  const [inAppNotification, setInAppNotification] = useState("");
 
   const annotationColor = "#22c55e";
   const annotationWidth = 6;
@@ -276,6 +278,42 @@ export default function ChatGlobalPage() {
       unsubMessages();
     };
   }, [router]);
+
+  useEffect(() => {
+    if (!messages.length) return;
+
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage?.id) return;
+
+    if (!lastMessageIdRef.current) {
+      lastMessageIdRef.current = lastMessage.id;
+      return;
+    }
+
+    if (lastMessage.id === lastMessageIdRef.current) return;
+
+    const isFromAnotherUser = lastMessage.uid !== uid;
+
+    if (isFromAnotherUser) {
+      setInAppNotification(
+        lastMessage.text?.trim()
+          ? `${lastMessage.senderName}: ${lastMessage.text}`
+          : `${lastMessage.senderName} enviou uma imagem.`
+      );
+    }
+
+    lastMessageIdRef.current = lastMessage.id;
+  }, [messages, uid]);
+
+  useEffect(() => {
+    if (!inAppNotification) return;
+
+    const timer = setTimeout(() => {
+      setInAppNotification("");
+    }, 4000);
+
+    return () => clearTimeout(timer);
+  }, [inAppNotification]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -514,6 +552,21 @@ export default function ChatGlobalPage() {
             </p>
           </div>
         </div>
+
+        {inAppNotification ? (
+          <div className="px-3 pt-3">
+            <div className="flex items-start justify-between gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/15 px-4 py-3 text-sm text-emerald-200">
+              <span className="line-clamp-2">{inAppNotification}</span>
+              <button
+                type="button"
+                onClick={() => setInAppNotification("")}
+                className="rounded-full bg-black/20 p-1 text-white"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <div className="flex-1 overflow-y-auto px-3 py-3">
           {messages.length === 0 ? (
