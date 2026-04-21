@@ -206,7 +206,6 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
     dailyRate: 8.5,
     durationDays: 60,
     finalReturn: 305000,
-    isPremium: true,
   },
 ];
 
@@ -871,11 +870,10 @@ export async function buyInvestmentPlan(params: {
     const userData: any = userSnap.data();
 
     let currentBalance = round2(Number(userData.balance ?? 0));
-    let currentTotalProfit = round2(Number(userData.totalProfit ?? 0));
     let currentBonus = round2(Number(userData.bonus ?? 0));
 
     const planAmount = round2(Number(plan.amount ?? 0));
-    const available = round2(currentBalance + currentTotalProfit + currentBonus);
+    const available = round2(currentBalance + currentBonus);
 
     if (available < planAmount) {
       throw new Error(
@@ -894,22 +892,11 @@ export async function buyInvestmentPlan(params: {
     }
 
     if (remaining > 0) {
-      if (currentTotalProfit >= remaining) {
-        currentTotalProfit -= remaining;
-        remaining = 0;
-      } else {
-        remaining -= currentTotalProfit;
-        currentTotalProfit = 0;
-      }
-    }
-
-    if (remaining > 0) {
       currentBonus = Math.max(0, currentBonus - remaining);
     }
 
     tx.update(userRef, {
       balance: round2(currentBalance),
-      totalProfit: round2(currentTotalProfit),
       bonus: round2(currentBonus),
     });
   });

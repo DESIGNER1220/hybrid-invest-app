@@ -5,6 +5,9 @@ import { usePathname } from "next/navigation";
 import { House, MessageCircle, Gift, User } from "lucide-react";
 import { useEffect, useState } from "react";
 
+// ROTA REAL DA TUA PÁGINA PRINCIPAL DEPOIS DO LOGIN
+const HOME_ROUTE = "/dashboard";
+
 export default function BottomNav() {
   const pathname = usePathname();
   const [chatUnread, setChatUnread] = useState(0);
@@ -26,7 +29,7 @@ export default function BottomNav() {
     };
   }, []);
 
-  const isInicio = pathname === "/" || pathname === "/inicio";
+  const isInicio = pathname === HOME_ROUTE;
   const isChat = pathname === "/chat-global";
   const isInvestimentos =
     pathname === "/investimentos" ||
@@ -39,7 +42,7 @@ export default function BottomNav() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-[#020817] pb-2 pt-2">
       <div className="mx-auto flex max-w-sm items-end justify-around px-2">
         <Link
-          href="/"
+          href={HOME_ROUTE}
           className={`flex w-16 flex-col items-center justify-center gap-1 ${
             isInicio ? "text-emerald-400" : "text-slate-400"
           }`}
