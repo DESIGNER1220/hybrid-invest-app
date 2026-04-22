@@ -3,7 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { AlertCircle, ArrowUpCircle, Crown, Percent, Wallet } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowUpCircle,
+  Crown,
+  Percent,
+  Wallet,
+} from "lucide-react";
 
 import { auth } from "../lib/firebase";
 import { createTransaction, getUserProfile } from "../services/authService";
@@ -13,6 +19,7 @@ type UserProfile = {
   balance?: number;
   bonus?: number;
   totalProfit?: number;
+  availableProfit?: number;
   vipLevel?: string;
   withdrawalFeePercent?: number;
 };
@@ -68,7 +75,7 @@ export default function LevantamentoPage() {
     return round2(
       Number(profile?.balance ?? 0) +
         Number(profile?.bonus ?? 0) +
-        Number(profile?.totalProfit ?? 0)
+        Number(profile?.availableProfit ?? 0)
     );
   }, [profile]);
 
@@ -160,7 +167,8 @@ export default function LevantamentoPage() {
             <h1 className="text-lg font-bold">Levantamento</h1>
           </div>
           <p className="mt-1 text-xs text-slate-400">
-            Solicite o seu levantamento e veja a taxa aplicada conforme o seu nível VIP.
+            Solicite o seu levantamento e veja a taxa aplicada conforme o seu
+            nível VIP.
           </p>
         </div>
 
@@ -201,9 +209,7 @@ export default function LevantamentoPage() {
         <div className="rounded-2xl border border-orange-500/20 bg-orange-500/10 p-4 shadow-lg">
           <div className="mb-3 flex items-center gap-2">
             <AlertCircle size={16} className="text-orange-300" />
-            <h2 className="text-sm font-bold text-orange-300">
-              Tabela VIP
-            </h2>
+            <h2 className="text-sm font-bold text-orange-300">Tabela VIP</h2>
           </div>
 
           <div className="space-y-2 text-[11px] text-white">

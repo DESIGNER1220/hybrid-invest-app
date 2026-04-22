@@ -522,6 +522,7 @@ export async function registerUser(params: {
     balance: 0,
     bonus: 0,
     totalProfit: 0,
+    profitUsed: 0,
     referrals: 0,
     activeReferralInvestors: 0,
     vipLevel: "VIP1",
@@ -607,6 +608,9 @@ export async function getUserProfile(uid: string) {
   if (!docSnap.exists()) return null;
 
   const userData: any = docSnap.data();
+  const totalProfit = Number(userData.totalProfit ?? 0);
+  const profitUsed = Number(userData.profitUsed ?? 0);
+  const availableProfit = Math.max(0, round2(totalProfit - profitUsed));
 
   return {
     ...userData,
@@ -615,6 +619,9 @@ export async function getUserProfile(uid: string) {
     activeReferralInvestors: Number(userData.activeReferralInvestors ?? 0),
     vipLevel: String(userData.vipLevel || "VIP1"),
     withdrawalFeePercent: Number(userData.withdrawalFeePercent ?? 12),
+    totalProfit,
+    profitUsed,
+    availableProfit,
   };
 }
 
@@ -744,7 +751,13 @@ export async function approveTransaction(transactionId: string) {
       const feeAmount = round2(amount * (feePercent / 100));
       const totalDeduction = round2(amount + feeAmount);
 
-      const available = currentBalance + currentTotalProfit + currentBonus;
+      const currentProfitUsed = Number(userData.profitUsed ?? 0);
+      const availableProfit = Math.max(
+        0,
+        round2(currentTotalProfit - currentProfitUsed)
+      );
+
+      const available = currentBalance + availableProfit + currentBonus;
 
       if (available < totalDeduction) {
         throw new Error(
@@ -754,8 +767,8 @@ export async function approveTransaction(transactionId: string) {
 
       let remaining = totalDeduction;
       let newBalance = currentBalance;
-      let newTotalProfit = currentTotalProfit;
       let newBonus = currentBonus;
+      let extraProfitUsed = 0;
 
       if (newBalance >= remaining) {
         newBalance -= remaining;
@@ -766,12 +779,12 @@ export async function approveTransaction(transactionId: string) {
       }
 
       if (remaining > 0) {
-        if (newTotalProfit >= remaining) {
-          newTotalProfit -= remaining;
+        if (availableProfit >= remaining) {
+          extraProfitUsed = remaining;
           remaining = 0;
         } else {
-          remaining -= newTotalProfit;
-          newTotalProfit = 0;
+          extraProfitUsed = availableProfit;
+          remaining -= availableProfit;
         }
       }
 
@@ -781,8 +794,8 @@ export async function approveTransaction(transactionId: string) {
 
       tx.update(userRef, {
         balance: round2(newBalance),
-        totalProfit: round2(newTotalProfit),
         bonus: round2(newBonus),
+        profitUsed: round2(currentProfitUsed + extraProfitUsed),
       });
 
       tx.update(transactionRef, {
@@ -871,9 +884,16 @@ export async function buyInvestmentPlan(params: {
 
     let currentBalance = round2(Number(userData.balance ?? 0));
     let currentBonus = round2(Number(userData.bonus ?? 0));
+    const currentTotalProfit = round2(Number(userData.totalProfit ?? 0));
+    const currentProfitUsed = round2(Number(userData.profitUsed ?? 0));
+
+    const availableProfit = Math.max(
+      0,
+      round2(currentTotalProfit - currentProfitUsed)
+    );
 
     const planAmount = round2(Number(plan.amount ?? 0));
-    const available = round2(currentBalance + currentBonus);
+    const available = round2(currentBalance + availableProfit + currentBonus);
 
     if (available < planAmount) {
       throw new Error(
@@ -882,6 +902,7 @@ export async function buyInvestmentPlan(params: {
     }
 
     let remaining = planAmount;
+    let extraProfitUsed = 0;
 
     if (currentBalance >= remaining) {
       currentBalance -= remaining;
@@ -892,12 +913,23 @@ export async function buyInvestmentPlan(params: {
     }
 
     if (remaining > 0) {
+      if (availableProfit >= remaining) {
+        extraProfitUsed = remaining;
+        remaining = 0;
+      } else {
+        extraProfitUsed = availableProfit;
+        remaining -= availableProfit;
+      }
+    }
+
+    if (remaining > 0) {
       currentBonus = Math.max(0, currentBonus - remaining);
     }
 
     tx.update(userRef, {
       balance: round2(currentBalance),
       bonus: round2(currentBonus),
+      profitUsed: round2(currentProfitUsed + extraProfitUsed),
     });
   });
 

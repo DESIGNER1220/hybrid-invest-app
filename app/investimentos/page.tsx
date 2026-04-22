@@ -14,6 +14,8 @@ import BottomNav from "../components/BottomNav";
 
 type UserProfile = {
   balance?: number;
+  bonus?: number;
+  availableProfit?: number;
 };
 
 const FALLBACK_IMAGE = "/plans/hybr-1-new.png";
@@ -108,13 +110,24 @@ export default function InvestimentosPage() {
     }
   }
 
+  const availableBalance = useMemo(() => {
+    return (
+      Number(profile?.balance ?? 0) +
+      Number(profile?.bonus ?? 0) +
+      Number(profile?.availableProfit ?? 0)
+    );
+  }, [profile]);
+
   const altoRendimentoPlans = useMemo(
     () => INVESTMENT_PLANS.filter((p) => p.id.startsWith("alto-btc")),
     []
   );
 
   const premiumPlans = useMemo(
-    () => INVESTMENT_PLANS.filter((p) => p.isPremium && !p.id.startsWith("alto-btc")),
+    () =>
+      INVESTMENT_PLANS.filter(
+        (p) => p.isPremium && !p.id.startsWith("alto-btc")
+      ),
     []
   );
 
@@ -146,7 +159,7 @@ export default function InvestimentosPage() {
           <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
             <p className="text-xs text-slate-300">Saldo disponível</p>
             <p className="mt-2 text-2xl font-bold text-emerald-400">
-              {formatMoney(Number(profile?.balance ?? 0))} MZN
+              {formatMoney(availableBalance)} MZN
             </p>
           </div>
         </div>

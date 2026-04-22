@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import BackButton from "../components/BackButton";
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
@@ -14,6 +13,7 @@ import DownloadAppButton from "../components/DownloadAppButton";
 type UserProfile = {
   balance?: number;
   totalProfit?: number;
+  availableProfit?: number;
   bonus?: number;
   role?: string;
 };
@@ -70,9 +70,10 @@ export default function DashboardPage() {
 
   const balance = Number(userData?.balance ?? 0);
   const totalProfit = Number(userData?.totalProfit ?? 0);
+  const availableProfit = Number(userData?.availableProfit ?? 0);
   const bonus = Number(userData?.bonus ?? 0);
   const isAdmin = userData?.role === "admin";
-  const total = balance + totalProfit + bonus;
+  const total = balance + availableProfit + bonus;
 
   if (loading) {
     return (
@@ -109,8 +110,8 @@ export default function DashboardPage() {
             >
               🚫 Não utilizamos grupos de WhatsApp nem Telegram — Para qualquer
               dúvida por favor entre em contacto aqui na nossa plataforma no
-              ícone verde abaixo no lado direito prestar atenciosamente — Obrigado, juntos faturamos,
-              juntos venceremos 🚀
+              ícone verde abaixo no lado direito prestar atenciosamente —
+              Obrigado, juntos faturamos, juntos venceremos 🚀
             </div>
           )}
         </div>
@@ -129,7 +130,7 @@ export default function DashboardPage() {
             <div className="rounded-xl bg-cyan-500/10 p-3 text-center">
               <p className="text-[10px] text-slate-300">Lucro</p>
               <h3 className="text-sm font-bold text-cyan-400">
-                {formatMoney(totalProfit)} MZN
+                {formatMoney(availableProfit)} MZN
               </h3>
             </div>
 
@@ -139,6 +140,10 @@ export default function DashboardPage() {
                 {formatMoney(bonus)} MZN
               </h3>
             </div>
+          </div>
+
+          <div className="mt-2 text-center text-[10px] text-slate-500">
+            Lucro bruto calculado: {formatMoney(totalProfit)} MZN
           </div>
         </div>
 
