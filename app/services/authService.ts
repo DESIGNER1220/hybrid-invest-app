@@ -244,6 +244,18 @@ function calculateAccruedProfitForInvestment(investment: any) {
   return round2(amount * (dailyRate / 100) * fullDays);
 }
 
+function isWeekendDate(date = new Date()) {
+  const day = date.getDay();
+  return day === 6 || day === 0;
+}
+
+function getWeekendDepositBonusPercent(amount: number) {
+  if (amount >= 5000) return 20;
+  if (amount >= 1000) return 15;
+  if (amount >= 100) return 10;
+  return 0;
+}
+
 async function generateUniqueReferralCode(phone: string) {
   const phoneNormalized = normalizePhone(phone);
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -400,9 +412,41 @@ async function syncVipDataForUser(uid: string) {
   };
 }
 
-function getWheelRewardByInvestment(totalInvested: number) {
+function getWheelRewardByInvestment(totalInvested: number, isWeekend = false) {
   if (totalInvested < 100) {
     return 0;
+  }
+
+  if (isWeekend) {
+    if (totalInvested >= 50000) {
+      return chooseWeightedReward([
+        { reward: 10, weight: 22 },
+        { reward: 20, weight: 20 },
+        { reward: 50, weight: 18 },
+        { reward: 100, weight: 15 },
+        { reward: 500, weight: 15 },
+        { reward: 1000, weight: 10 },
+      ]);
+    }
+
+    if (totalInvested >= 1000) {
+      return chooseWeightedReward([
+        { reward: 5, weight: 20 },
+        { reward: 10, weight: 24 },
+        { reward: 20, weight: 22 },
+        { reward: 50, weight: 18 },
+        { reward: 100, weight: 10 },
+        { reward: 500, weight: 6 },
+      ]);
+    }
+
+    return chooseWeightedReward([
+      { reward: 0, weight: 28 },
+      { reward: 5, weight: 24 },
+      { reward: 10, weight: 22 },
+      { reward: 20, weight: 16 },
+      { reward: 50, weight: 10 },
+    ]);
   }
 
   if (totalInvested >= 50000) {
@@ -622,6 +666,7 @@ export async function getUserProfile(uid: string) {
     totalProfit,
     profitUsed,
     availableProfit,
+    isWeekendPromo: isWeekendDate(),
   };
 }
 
@@ -693,10 +738,23 @@ export async function getPendingTransactions() {
   );
   const snapshot = await getDocs(q);
 
-  const data = snapshot.docs.map((item) => ({
-    id: item.id,
-    ...item.data(),
-  }));
+  const data = snapshot.docs.map((item) => {
+    const itemData: any = item.data();
+    const amount = Number(itemData.amount ?? 0);
+    const isWeekendPromo = itemData.type === "deposito" && isWeekendDate();
+    const weekendBonusPercent = isWeekendPromo
+      ? getWeekendDepositBonusPercent(amount)
+      : 0;
+    const weekendBonusAmount = round2(amount * (weekendBonusPercent / 100));
+
+    return {
+      id: item.id,
+      ...itemData,
+      weekendBonusPercent,
+      weekendBonusAmount,
+      isWeekendPromo,
+    };
+  });
 
   return data.sort((a: any, b: any) => {
     const aSec = a.createdAt?.seconds ?? 0;
@@ -735,9 +793,24 @@ export async function approveTransaction(transactionId: string) {
     const amount = Number(transactionData.amount ?? 0);
 
     if (transactionData.type === "deposito") {
+      const weekendPromo = isWeekendDate();
+      const weekendBonusPercent = weekendPromo
+        ? getWeekendDepositBonusPercent(amount)
+        : 0;
+      const weekendBonusAmount = round2(
+        amount * (weekendBonusPercent / 100)
+      );
+
       tx.update(userRef, {
         balance: round2(currentBalance + amount),
+        bonus: round2(currentBonus + weekendBonusAmount),
         hasDeposited: true,
+      });
+
+      tx.update(transactionRef, {
+        weekendPromoApplied: weekendPromo && weekendBonusPercent > 0,
+        weekendBonusPercent,
+        weekendBonusAmount,
       });
     }
 
@@ -1116,8 +1189,9 @@ export async function spinWheel(uid: string) {
   const userRef = doc(db, "users", uid);
   const todayKey = getTodayKey();
   const totalInvested = await getTotalInvested(uid);
+  const weekendPromo = isWeekendDate();
 
-  const reward = getWheelRewardByInvestment(totalInvested);
+  const reward = getWheelRewardByInvestment(totalInvested, weekendPromo);
   const rewardLabel = getRewardLabel(reward);
 
   const userSnapBefore = await getDoc(userRef);
@@ -1183,12 +1257,14 @@ export async function spinWheel(uid: string) {
     reward,
     label: rewardLabel,
     investedAmount: totalInvested,
+    weekendPromo,
     createdAt: serverTimestamp(),
   });
 
   return {
     reward,
     label: rewardLabel,
+    weekendPromo,
   };
 }
 

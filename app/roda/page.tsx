@@ -13,13 +13,22 @@ import {
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/BottomNav";
 
-const wheelItems = [
+const normalWheelItems = [
   { label: "50 MZN", value: 50, color: "#f59e0b" },
   { label: "5 MZN", value: 5, color: "#3b82f6" },
   { label: "10 MZN", value: 10, color: "#10b981" },
   { label: "500 MZN", value: 500, color: "#d946ef" },
   { label: "1000 MZN", value: 1000, color: "#ef4444" },
   { label: "BOA SORTE", value: 0, color: "#64748b" },
+];
+
+const weekendWheelItems = [
+  { label: "10 MZN", value: 10, color: "#22c55e" },
+  { label: "20 MZN", value: 20, color: "#06b6d4" },
+  { label: "50 MZN", value: 50, color: "#f59e0b" },
+  { label: "100 MZN", value: 100, color: "#a855f7" },
+  { label: "500 MZN", value: 500, color: "#ec4899" },
+  { label: "1000 MZN", value: 1000, color: "#ef4444" },
 ];
 
 function formatDateTime(timestamp?: { seconds?: number }) {
@@ -32,6 +41,11 @@ function formatDateTime(timestamp?: { seconds?: number }) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function isWeekendNow() {
+  const day = new Date().getDay();
+  return day === 6 || day === 0;
 }
 
 export default function RodaPage() {
@@ -49,6 +63,12 @@ export default function RodaPage() {
   const [investedAmount, setInvestedAmount] = useState(0);
   const [history, setHistory] = useState<WheelSpinHistoryItem[]>([]);
   const [activeSlice, setActiveSlice] = useState<number | null>(null);
+  const [weekendPromo, setWeekendPromo] = useState(false);
+
+  const wheelItems = useMemo(
+    () => (weekendPromo ? weekendWheelItems : normalWheelItems),
+    [weekendPromo]
+  );
 
   const sliceAngle = 360 / wheelItems.length;
 
@@ -70,6 +90,7 @@ export default function RodaPage() {
     setReferrals(Number(userProfile?.referrals ?? 0));
     setInvestedAmount(totalInvested);
     setHistory(historyData || []);
+    setWeekendPromo(Boolean(userProfile?.isWeekendPromo ?? isWeekendNow()));
   }
 
   useEffect(() => {
@@ -165,9 +186,9 @@ export default function RodaPage() {
 
     let index = 0;
     const delays = [
-      0, 90, 180, 270, 360, 450, 540, 630, 720, 810,
-      900, 990, 1080, 1170, 1260, 1350, 1440, 1530, 1620, 1710,
-      1810, 1920, 2040, 2180, 2340, 2520, 2730, 2970, 3240, 3550
+      0, 90, 180, 270, 360, 450, 540, 630, 720, 810, 900, 990, 1080, 1170,
+      1260, 1350, 1440, 1530, 1620, 1710, 1810, 1920, 2040, 2180, 2340, 2520,
+      2730, 2970, 3240, 3550,
     ];
 
     delays.forEach((delay) => {
@@ -202,7 +223,8 @@ export default function RodaPage() {
 
   function getTargetAngleByReward(reward: number) {
     const rewardIndex = wheelItems.findIndex((item) => item.value === reward);
-    const centerAngle = rewardIndex * sliceAngle + sliceAngle / 2;
+    const safeIndex = rewardIndex >= 0 ? rewardIndex : 0;
+    const centerAngle = safeIndex * sliceAngle + sliceAngle / 2;
     return 360 - centerAngle;
   }
 
@@ -215,7 +237,7 @@ export default function RodaPage() {
       setSpinning(true);
       setActiveSlice(0);
 
-      const spinData = await spinWheel(uid);
+      const spinData: any = await spinWheel(uid);
       const targetAngle = getTargetAngleByReward(spinData.reward);
       const extraTurns = 360 * 6;
       const finalRotation = rotation + extraTurns + targetAngle;
@@ -248,6 +270,22 @@ export default function RodaPage() {
       return "Convide pelo menos 1 pessoa para ativar a roda";
     }
 
+    if (weekendPromo) {
+      if (investedAmount < 100) {
+        return "Fim de semana: sem investimento ainda recebe apenas BOA SORTE";
+      }
+
+      if (investedAmount >= 50000) {
+        return "Fim de semana premiado: pode ganhar até 1000 MZN com chances melhores";
+      }
+
+      if (investedAmount >= 1000) {
+        return "Fim de semana premiado: pode ganhar até 500 MZN com chances melhores";
+      }
+
+      return "Fim de semana premiado: mais chances de 10, 20 e 50 MZN";
+    }
+
     if (investedAmount < 100) {
       return "Sem investimento: recebe apenas BOA SORTE";
     }
@@ -261,7 +299,7 @@ export default function RodaPage() {
     }
 
     return "Investimento de 100 MZN ou mais: pode ganhar até 50 MZN";
-  }, [referrals, investedAmount]);
+  }, [referrals, investedAmount, weekendPromo]);
 
   const canSpin = referrals >= 1;
 
@@ -276,7 +314,7 @@ export default function RodaPage() {
     });
 
     return `conic-gradient(${parts.join(", ")})`;
-  }, [sliceAngle]);
+  }, [sliceAngle, wheelItems]);
 
   if (loading) {
     return (
@@ -289,7 +327,21 @@ export default function RodaPage() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 pt-4 pb-28 text-white">
       <div className="mx-auto max-w-md space-y-4">
-        <h1 className="text-center text-xl font-bold">Roda da Sorte</h1>
+        <h1 className="text-center text-xl font-bold">
+          {weekendPromo ? "Roda da Sorte • Fim de Semana" : "Roda da Sorte"}
+        </h1>
+
+        {weekendPromo && (
+          <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-center">
+            <p className="text-xs font-bold uppercase tracking-wide text-amber-300">
+              Fim de semana premiado
+            </p>
+            <p className="mt-1 text-sm text-white">
+              Chances melhores e prémios especiais para incentivar mais depósitos
+              e investimentos.
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-xl border border-white/10 bg-white/5 p-3">
@@ -318,21 +370,24 @@ export default function RodaPage() {
               spinning ? "scale-105 opacity-100" : "opacity-60"
             }`}
             style={{
-              background:
-                "radial-gradient(circle, rgba(245,158,11,0.28) 0%, rgba(245,158,11,0.12) 35%, rgba(0,0,0,0) 72%)",
+              background: weekendPromo
+                ? "radial-gradient(circle, rgba(236,72,153,0.30) 0%, rgba(245,158,11,0.16) 35%, rgba(0,0,0,0) 72%)"
+                : "radial-gradient(circle, rgba(245,158,11,0.28) 0%, rgba(245,158,11,0.12) 35%, rgba(0,0,0,0) 72%)",
             }}
           />
 
           <div className="absolute top-0 z-30 h-0 w-0 border-l-[14px] border-r-[14px] border-b-[24px] border-l-transparent border-r-transparent border-b-amber-400 drop-shadow-[0_0_10px_rgba(245,158,11,0.7)]" />
 
           <div
-            className={`absolute h-72 w-72 rounded-full border border-amber-300/30 ${
-              spinning ? "animate-ping" : ""
-            }`}
+            className={`absolute h-72 w-72 rounded-full border ${
+              weekendPromo ? "border-pink-300/40" : "border-amber-300/30"
+            } ${spinning ? "animate-ping" : ""}`}
           />
 
           <div
-            className="relative z-20 h-72 w-72 rounded-full border-8 border-amber-500"
+            className={`relative z-20 h-72 w-72 rounded-full border-8 ${
+              weekendPromo ? "border-pink-500" : "border-amber-500"
+            }`}
             style={{
               transform: `rotate(${rotation}deg)`,
               transition: spinning
@@ -340,7 +395,11 @@ export default function RodaPage() {
                 : "none",
               background: wheelGradient,
               boxShadow: spinning
-                ? "0 0 40px rgba(245,158,11,0.45), inset 0 0 30px rgba(255,255,255,0.08)"
+                ? weekendPromo
+                  ? "0 0 40px rgba(236,72,153,0.45), inset 0 0 30px rgba(255,255,255,0.08)"
+                  : "0 0 40px rgba(245,158,11,0.45), inset 0 0 30px rgba(255,255,255,0.08)"
+                : weekendPromo
+                ? "0 0 24px rgba(236,72,153,0.28), inset 0 0 20px rgba(255,255,255,0.04)"
                 : "0 0 24px rgba(245,158,11,0.28), inset 0 0 20px rgba(255,255,255,0.04)",
             }}
           >
@@ -379,7 +438,9 @@ export default function RodaPage() {
                       boxShadow: isActive
                         ? "0 0 18px rgba(255,255,255,0.28)"
                         : "none",
-                      background: isActive ? "rgba(255,255,255,0.12)" : "transparent",
+                      background: isActive
+                        ? "rgba(255,255,255,0.12)"
+                        : "transparent",
                     }}
                   >
                     {item.label}
@@ -405,12 +466,18 @@ export default function RodaPage() {
         <button
           onClick={handleSpin}
           disabled={spinning || !canSpin}
-          className="w-full rounded-xl bg-amber-500 py-3 text-sm font-bold text-black transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-70"
+          className={`w-full rounded-xl py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-70 ${
+            weekendPromo
+              ? "bg-pink-500 text-white hover:bg-pink-400"
+              : "bg-amber-500 text-black hover:bg-amber-400"
+          }`}
         >
           {spinning
             ? "Girando..."
             : canSpin
-            ? "Girar roda"
+            ? weekendPromo
+              ? "Girar roda premiada"
+              : "Girar roda"
             : "Convide 1 amigo para ativar"}
         </button>
 
@@ -421,16 +488,29 @@ export default function RodaPage() {
         )}
 
         <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-          <h2 className="text-sm font-bold text-amber-400">Histórico de prêmios</h2>
+          <h2 className="text-sm font-bold text-amber-400">
+            Histórico de prêmios
+          </h2>
 
           {history.length === 0 ? (
-            <p className="mt-3 text-xs text-slate-400">Nenhum giro registado.</p>
+            <p className="mt-3 text-xs text-slate-400">
+              Nenhum giro registado.
+            </p>
           ) : (
             <div className="mt-3 space-y-2">
-              {history.map((item) => (
+              {history.map((item: any) => (
                 <div key={item.id} className="rounded-lg bg-slate-950/40 p-3">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-bold text-white">{item.label}</p>
+                    <div>
+                      <p className="text-sm font-bold text-white">
+                        {item.label}
+                      </p>
+                      {item.weekendPromo ? (
+                        <p className="text-[10px] text-pink-300">
+                          Fim de semana premiado
+                        </p>
+                      ) : null}
+                    </div>
                     <p className="text-[11px] text-slate-400">
                       {formatDateTime(item.createdAt)}
                     </p>

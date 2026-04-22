@@ -12,6 +12,7 @@ import {
   Users,
   Clock3,
   Wallet,
+  Sparkles,
 } from "lucide-react";
 import { auth } from "../lib/firebase";
 import BottomNav from "../components/BottomNav";
@@ -39,6 +40,9 @@ type PendingTransaction = {
   transactionCode?: string;
   status?: string;
   createdAt?: { seconds?: number };
+  weekendBonusPercent?: number;
+  weekendBonusAmount?: number;
+  isWeekendPromo?: boolean;
 };
 
 type BonusCodeItem = {
@@ -275,10 +279,29 @@ export default function AdminPage() {
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black px-3 pt-4 pb-24 text-white">
       <div className="mx-auto max-w-sm space-y-4">
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg">
-          <h1 className="text-xl font-bold text-amber-400">Painel do Administrador</h1>
+          <h1 className="text-xl font-bold text-amber-400">
+            Painel do Administrador
+          </h1>
           <p className="mt-1 text-xs text-slate-400">
             Aprovações, códigos de bónus e controlo de utilizadores.
           </p>
+        </div>
+
+        <div className="rounded-2xl border border-pink-500/20 bg-pink-500/10 p-4 shadow-lg">
+          <div className="flex items-center gap-2">
+            <Sparkles size={16} className="text-pink-300" />
+            <h2 className="text-sm font-bold text-pink-300">
+              Promoção de fim de semana
+            </h2>
+          </div>
+          <p className="mt-2 text-xs text-white">
+            Depósitos aprovados no fim de semana recebem bónus automático:
+          </p>
+          <div className="mt-2 space-y-1 text-[11px] text-slate-200">
+            <p>100+ MZN → +10%</p>
+            <p>1000+ MZN → +15%</p>
+            <p>5000+ MZN → +20%</p>
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2">
@@ -330,7 +353,9 @@ export default function AdminPage() {
               </div>
 
               <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-center">
-                <p className="text-[11px] text-slate-400">Levantamentos pendentes</p>
+                <p className="text-[11px] text-slate-400">
+                  Levantamentos pendentes
+                </p>
                 <p className="mt-1 text-lg font-bold text-amber-400">
                   {transactionSummary.withdrawals}
                 </p>
@@ -381,6 +406,24 @@ export default function AdminPage() {
                     </div>
                   </div>
 
+                  {item.type === "deposito" && item.isWeekendPromo && (
+                    <div className="mt-3 rounded-xl border border-pink-400/20 bg-pink-500/10 p-3">
+                      <div className="flex items-center gap-2">
+                        <Sparkles size={14} className="text-pink-300" />
+                        <p className="text-xs font-bold text-pink-300">
+                          Bónus automático de fim de semana
+                        </p>
+                      </div>
+                      <p className="mt-1 text-[11px] text-slate-200">
+                        Ao aprovar este depósito, o utilizador recebe mais{" "}
+                        <span className="font-bold text-white">
+                          {formatMoney(item.weekendBonusAmount ?? 0)} MZN
+                        </span>{" "}
+                        de bónus ({item.weekendBonusPercent ?? 0}%).
+                      </p>
+                    </div>
+                  )}
+
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <button
                       type="button"
@@ -413,12 +456,16 @@ export default function AdminPage() {
             <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow">
               <div className="flex items-center gap-2">
                 <Gift size={16} className="text-amber-300" />
-                <h2 className="text-sm font-bold text-white">Criar código de bónus</h2>
+                <h2 className="text-sm font-bold text-white">
+                  Criar código de bónus
+                </h2>
               </div>
 
               <div className="mt-3 space-y-3">
                 <div>
-                  <label className="mb-1 block text-xs text-slate-400">Código</label>
+                  <label className="mb-1 block text-xs text-slate-400">
+                    Código
+                  </label>
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -438,7 +485,9 @@ export default function AdminPage() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs text-slate-400">Valor</label>
+                  <label className="mb-1 block text-xs text-slate-400">
+                    Valor
+                  </label>
                   <input
                     type="number"
                     value={newBonusAmount}
@@ -516,10 +565,13 @@ export default function AdminPage() {
             <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow">
               <div className="flex items-center gap-2">
                 <Users size={16} className="text-cyan-300" />
-                <h2 className="text-sm font-bold text-white">Gestão de utilizadores</h2>
+                <h2 className="text-sm font-bold text-white">
+                  Gestão de utilizadores
+                </h2>
               </div>
               <p className="mt-1 text-xs text-slate-400">
-                Utilizador bloqueado continua a entrar, pode depositar e investir, mas não pode fazer levantamento.
+                Utilizador bloqueado continua a entrar, pode depositar e
+                investir, mas não pode fazer levantamento.
               </p>
             </div>
 

@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { House, MessageCircle, Gift, User } from "lucide-react";
+import { House, MessageCircle, Gift, User, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 
-// ROTA REAL DA TUA PÁGINA PRINCIPAL DEPOIS DO LOGIN
 const HOME_ROUTE = "/dashboard";
 
 export default function BottomNav() {
@@ -37,37 +36,42 @@ export default function BottomNav() {
     pathname === "/planos";
   const isRoda = pathname === "/roda";
   const isPerfil = pathname === "/perfil";
+  const isAtivos = pathname === "/ativos"; // ✅ NOVO
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-[#020817] pb-2 pt-2">
       <div className="mx-auto flex max-w-sm items-end justify-around px-2">
+
+        {/* INICIO */}
         <Link
           href={HOME_ROUTE}
-          className={`flex w-16 flex-col items-center justify-center gap-1 ${
+          className={`flex w-14 flex-col items-center justify-center gap-1 ${
             isInicio ? "text-emerald-400" : "text-slate-400"
           }`}
         >
-          <House size={24} />
-          <span className="text-xs font-medium">Início</span>
+          <House size={22} />
+          <span className="text-[11px] font-medium">Início</span>
         </Link>
 
+        {/* CHAT */}
         <Link
           href="/chat-global"
-          className={`relative flex w-16 flex-col items-center justify-center gap-1 ${
+          className={`relative flex w-14 flex-col items-center justify-center gap-1 ${
             isChat ? "text-emerald-400" : "text-slate-400"
           }`}
         >
           <div className="relative">
-            <MessageCircle size={24} />
-            {chatUnread > 0 ? (
-              <span className="absolute -right-2 -top-2 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+            <MessageCircle size={22} />
+            {chatUnread > 0 && (
+              <span className="absolute -right-2 -top-2 flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
                 {chatUnread > 99 ? "99+" : chatUnread}
               </span>
-            ) : null}
+            )}
           </div>
-          <span className="text-xs font-medium">Chat</span>
+          <span className="text-[11px] font-medium">Chat</span>
         </Link>
 
+        {/* BOTAO CENTRAL */}
         <Link
           href="/investimentos"
           className="relative -mt-8 flex h-24 w-24 flex-col items-center justify-center"
@@ -83,24 +87,37 @@ export default function BottomNav() {
           </div>
         </Link>
 
+        {/* ATIVOS (NOVO) */}
+        <Link
+          href="/ativos"
+          className={`flex w-14 flex-col items-center justify-center gap-1 ${
+            isAtivos ? "text-emerald-400" : "text-slate-400"
+          }`}
+        >
+          <TrendingUp size={22} />
+          <span className="text-[11px] font-medium">Ativos</span>
+        </Link>
+
+        {/* RODA */}
         <Link
           href="/roda"
-          className={`flex w-16 flex-col items-center justify-center gap-1 ${
+          className={`flex w-14 flex-col items-center justify-center gap-1 ${
             isRoda ? "text-emerald-400" : "text-slate-400"
           }`}
         >
-          <Gift size={24} />
-          <span className="text-xs font-medium">Roda</span>
+          <Gift size={22} />
+          <span className="text-[11px] font-medium">Roda</span>
         </Link>
 
+        {/* PERFIL */}
         <Link
           href="/perfil"
-          className={`flex w-16 flex-col items-center justify-center gap-1 ${
+          className={`flex w-14 flex-col items-center justify-center gap-1 ${
             isPerfil ? "text-emerald-400" : "text-slate-400"
           }`}
         >
-          <User size={24} />
-          <span className="text-xs font-medium">Perfil</span>
+          <User size={22} />
+          <span className="text-[11px] font-medium">Perfil</span>
         </Link>
       </div>
     </nav>
