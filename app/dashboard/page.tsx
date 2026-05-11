@@ -122,21 +122,6 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3 shadow">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
-            <MapPin size={20} />
-          </div>
-
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-              Nossa localização
-            </p>
-            <p className="text-sm font-bold text-emerald-300">
-              {companyLocation}
-            </p>
-          </div>
-        </div>
-
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow">
           <div className="rounded-xl bg-emerald-500/10 p-3 text-center">
             <p className="text-[10px] text-slate-300">Saldo total</p>
@@ -223,6 +208,21 @@ export default function DashboardPage() {
               sizes="(max-width: 768px) 100vw, 384px"
               className="object-cover"
             />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3 shadow">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
+            <MapPin size={20} />
+          </div>
+
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              Nossa localização
+            </p>
+            <p className="text-sm font-bold text-emerald-300">
+              {companyLocation}
+            </p>
           </div>
         </div>
       </div>
