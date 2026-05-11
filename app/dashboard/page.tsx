@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LogOut, MapPin } from "lucide-react";
 import { auth } from "../lib/firebase";
 import { getUserProfile, logoutUser } from "../services/authService";
 import BottomNav from "../components/BottomNav";
@@ -30,6 +30,8 @@ export default function DashboardPage() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [bannerPaused, setBannerPaused] = useState(false);
   const [showPauseNotice, setShowPauseNotice] = useState(false);
+
+  const companyLocation = "Montepuez, Cabo Delgado — Moçambique";
 
   async function load(uid: string) {
     const profile = await getUserProfile(uid);
@@ -85,6 +87,10 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black px-3 pt-5 pb-24 text-white">
+      <div className="fixed left-4 top-4 z-50">
+        <DownloadAppButton className="shadow-lg" />
+      </div>
+
       <button
         type="button"
         onClick={() => setShowLogoutConfirm(true)}
@@ -93,7 +99,7 @@ export default function DashboardPage() {
         <LogOut size={18} />
       </button>
 
-      <div className="mx-auto max-w-sm space-y-4">
+      <div className="mx-auto max-w-sm space-y-4 pt-12">
         <div
           onClick={handleBannerTap}
           className="relative overflow-hidden rounded-xl border border-amber-500/20 bg-amber-500/10 py-2"
@@ -116,7 +122,20 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <DownloadAppButton className="mb-4" />
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3 shadow">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
+            <MapPin size={20} />
+          </div>
+
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              Nossa localização
+            </p>
+            <p className="text-sm font-bold text-emerald-300">
+              {companyLocation}
+            </p>
+          </div>
+        </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow">
           <div className="rounded-xl bg-emerald-500/10 p-3 text-center">
