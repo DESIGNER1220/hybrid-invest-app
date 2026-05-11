@@ -9,6 +9,7 @@ import {
   Crown,
   Percent,
   Wallet,
+  Clock,
 } from "lucide-react";
 
 import { auth } from "../lib/firebase";
@@ -24,12 +25,51 @@ type UserProfile = {
   withdrawalFeePercent?: number;
 };
 
+const MIN_WITHDRAWAL_AMOUNT = 200;
+const WITHDRAWAL_START_HOUR = 10;
+const WITHDRAWAL_END_HOUR = 22;
+
 function round2(value: number) {
   return Math.round(value * 100) / 100;
 }
 
 function formatMoney(value: number) {
   return Number(value || 0).toLocaleString("pt-MZ");
+}
+
+function getMaputoDateParts() {
+  const formatter = new Intl.DateTimeFormat("pt-MZ", {
+    timeZone: "Africa/Maputo",
+    weekday: "short",
+    hour: "2-digit",
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(new Date());
+
+  const weekday = parts.find((part) => part.type === "weekday")?.value || "";
+  const hourText = parts.find((part) => part.type === "hour")?.value || "0";
+  const hour = Number(hourText);
+
+  return {
+    weekday: weekday.toLowerCase(),
+    hour,
+  };
+}
+
+function isWithdrawalTimeAllowed() {
+  const { weekday, hour } = getMaputoDateParts();
+
+  const isWeekend =
+    weekday.includes("sábado") ||
+    weekday.includes("sab") ||
+    weekday.includes("domingo") ||
+    weekday.includes("dom");
+
+  const isBusinessHour =
+    hour >= WITHDRAWAL_START_HOUR && hour < WITHDRAWAL_END_HOUR;
+
+  return !isWeekend && isBusinessHour;
 }
 
 export default function LevantamentoPage() {
@@ -102,6 +142,10 @@ export default function LevantamentoPage() {
     return round2(amountNumber);
   }, [amountNumber]);
 
+  const withdrawalAllowedNow = useMemo(() => {
+    return isWithdrawalTimeAllowed();
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -117,12 +161,24 @@ export default function LevantamentoPage() {
       setErrorMsg("");
       setSuccessMsg("");
 
+      if (!isWithdrawalTimeAllowed()) {
+        throw new Error(
+          "Levantamentos só estão disponíveis de segunda a sexta, das 10h às 22h."
+        );
+      }
+
       if (!phone.trim()) {
         throw new Error("Informe o número de telefone.");
       }
 
       if (!amountNumber || amountNumber <= 0) {
         throw new Error("Informe um valor válido.");
+      }
+
+      if (amountNumber < MIN_WITHDRAWAL_AMOUNT) {
+        throw new Error(
+          `O valor mínimo para levantamento é ${MIN_WITHDRAWAL_AMOUNT} MZN.`
+        );
       }
 
       if (totalDeduction > availableBalance) {
@@ -206,6 +262,46 @@ export default function LevantamentoPage() {
           </div>
         </div>
 
+        <div
+          className={`rounded-2xl border p-4 shadow-lg ${
+            withdrawalAllowedNow
+              ? "border-emerald-500/20 bg-emerald-500/10"
+              : "border-red-500/20 bg-red-500/10"
+          }`}
+        >
+          <div className="flex items-start gap-2">
+            <Clock
+              size={16}
+              className={
+                withdrawalAllowedNow ? "text-emerald-300" : "text-red-300"
+              }
+            />
+            <div>
+              <h2
+                className={`text-sm font-bold ${
+                  withdrawalAllowedNow ? "text-emerald-300" : "text-red-300"
+                }`}
+              >
+                Regras de levantamento
+              </h2>
+              <p className="mt-1 text-xs text-slate-300">
+                Valor mínimo:{" "}
+                <strong>{MIN_WITHDRAWAL_AMOUNT} MZN</strong>
+              </p>
+              <p className="text-xs text-slate-300">
+                Horário:{" "}
+                <strong>segunda a sexta, das 10h às 22h</strong>
+              </p>
+
+              {!withdrawalAllowedNow && (
+                <p className="mt-2 text-xs font-semibold text-red-300">
+                  Neste momento os levantamentos estão fora do horário permitido.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="rounded-2xl border border-orange-500/20 bg-orange-500/10 p-4 shadow-lg">
           <div className="mb-3 flex items-center gap-2">
             <AlertCircle size={16} className="text-orange-300" />
@@ -256,7 +352,9 @@ export default function LevantamentoPage() {
               </label>
               <select
                 value={method}
-                onChange={(e) => setMethod(e.target.value as "M-Pesa" | "E-mola")}
+                onChange={(e) =>
+                  setMethod(e.target.value as "M-Pesa" | "E-mola")
+                }
                 className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
               >
                 <option value="M-Pesa">M-Pesa</option>
@@ -286,9 +384,9 @@ export default function LevantamentoPage() {
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="Digite o valor"
+                placeholder={`Mínimo ${MIN_WITHDRAWAL_AMOUNT} MZN`}
                 className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
-                min="1"
+                min={MIN_WITHDRAWAL_AMOUNT}
                 step="0.01"
                 required
               />
@@ -328,8 +426,8 @@ export default function LevantamentoPage() {
 
             <button
               type="submit"
-              disabled={submitting}
-              className="w-full rounded-xl bg-red-500 py-3 text-lg font-bold text-white transition hover:bg-red-400 disabled:opacity-70"
+              disabled={submitting || !withdrawalAllowedNow}
+              className="w-full rounded-xl bg-red-500 py-3 text-lg font-bold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? "Enviando..." : "Solicitar levantamento"}
             </button>

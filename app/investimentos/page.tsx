@@ -172,7 +172,7 @@ export default function InvestimentosPage() {
             </h2>
           </div>
 
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-300">
             Arraste para direita ou esquerda para ver mais.
           </p>
 

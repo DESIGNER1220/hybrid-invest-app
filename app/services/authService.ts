@@ -26,6 +26,9 @@ import {
 export type TransactionType = "deposito" | "levantamento";
 export type PaymentMethod = "M-Pesa" | "E-mola";
 
+export type FinancialAdjustmentTarget = "balance" | "profit" | "bonus";
+export type FinancialAdjustmentAction = "increase" | "decrease";
+
 export type InvestmentPlan = {
   id: string;
   name: string;
@@ -76,9 +79,9 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
     id: "premium-1",
     name: "HYBRD PREMIUM 1",
     amount: 1000,
-    dailyRate: 14.7,
+    dailyRate: 10,
     durationDays: 15,
-    finalReturn: 3205,
+    finalReturn: 1500,
     isPremium: true,
   },
   {
@@ -164,7 +167,7 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
     name: "ALTO RENDIMENTO - MAQUINA BITCOIN S19",
     amount: 1000,
     dailyRate: 5.5,
-    durationDays: 30,
+    durationDays: 60,
     finalReturn: 2650,
   },
   {
@@ -210,6 +213,9 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
 ];
 
 const ADMIN_PHONE = "869933273";
+const MIN_WITHDRAWAL_AMOUNT = 200;
+const WITHDRAWAL_START_HOUR = 10;
+const WITHDRAWAL_END_HOUR = 22;
 const DAILY_SPIN_HARD_LIMIT = 20;
 const SPIN_COOLDOWN_MS = 10_000;
 
@@ -247,6 +253,41 @@ function calculateAccruedProfitForInvestment(investment: any) {
 function isWeekendDate(date = new Date()) {
   const day = date.getDay();
   return day === 6 || day === 0;
+}
+
+function getMaputoDateParts() {
+  const formatter = new Intl.DateTimeFormat("pt-MZ", {
+    timeZone: "Africa/Maputo",
+    weekday: "short",
+    hour: "2-digit",
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(new Date());
+
+  const weekday = parts.find((part) => part.type === "weekday")?.value || "";
+  const hourText = parts.find((part) => part.type === "hour")?.value || "0";
+  const hour = Number(hourText);
+
+  return {
+    weekday: weekday.toLowerCase(),
+    hour,
+  };
+}
+
+function isWithdrawalTimeAllowed() {
+  const { weekday, hour } = getMaputoDateParts();
+
+  const isWeekend =
+    weekday.includes("sábado") ||
+    weekday.includes("sab") ||
+    weekday.includes("domingo") ||
+    weekday.includes("dom");
+
+  const isBusinessHour =
+    hour >= WITHDRAWAL_START_HOUR && hour < WITHDRAWAL_END_HOUR;
+
+  return !isWeekend && isBusinessHour;
 }
 
 function getWeekendDepositBonusPercent(amount: number) {
@@ -566,6 +607,7 @@ export async function registerUser(params: {
     balance: 0,
     bonus: 0,
     totalProfit: 0,
+    manualProfitAdjustment: 0,
     profitUsed: 0,
     referrals: 0,
     activeReferralInvestors: 0,
@@ -653,8 +695,14 @@ export async function getUserProfile(uid: string) {
 
   const userData: any = docSnap.data();
   const totalProfit = Number(userData.totalProfit ?? 0);
+  const manualProfitAdjustment = Number(userData.manualProfitAdjustment ?? 0);
   const profitUsed = Number(userData.profitUsed ?? 0);
-  const availableProfit = Math.max(0, round2(totalProfit - profitUsed));
+
+  const adjustedTotalProfit = round2(totalProfit + manualProfitAdjustment);
+  const availableProfit = Math.max(
+    0,
+    round2(adjustedTotalProfit - profitUsed)
+  );
 
   return {
     ...userData,
@@ -664,6 +712,8 @@ export async function getUserProfile(uid: string) {
     vipLevel: String(userData.vipLevel || "VIP1"),
     withdrawalFeePercent: Number(userData.withdrawalFeePercent ?? 12),
     totalProfit,
+    manualProfitAdjustment,
+    adjustedTotalProfit,
     profitUsed,
     availableProfit,
     isWeekendPromo: isWeekendDate(),
@@ -689,17 +739,16 @@ export async function createTransaction(params: {
   }
 
   if (type === "levantamento") {
-    const userRef = doc(db, "users", uid);
-    const userSnap = await getDoc(userRef);
-
-    if (!userSnap.exists()) {
-      throw new Error("Utilizador não encontrado.");
+    if (amount < MIN_WITHDRAWAL_AMOUNT) {
+      throw new Error(
+        `O valor mínimo para levantamento é ${MIN_WITHDRAWAL_AMOUNT} MZN.`
+      );
     }
 
-    const userData: any = userSnap.data();
-
-    if (userData?.blocked === true) {
-      throw new Error("Negado, conta bloqueada");
+    if (!isWithdrawalTimeAllowed()) {
+      throw new Error(
+        "Levantamentos só estão disponíveis de segunda a sexta, das 10h às 22h."
+      );
     }
   }
 
@@ -789,6 +838,9 @@ export async function approveTransaction(transactionId: string) {
     const userData: any = userSnap.data();
     const currentBalance = Number(userData.balance ?? 0);
     const currentTotalProfit = Number(userData.totalProfit ?? 0);
+    const currentManualProfitAdjustment = Number(
+      userData.manualProfitAdjustment ?? 0
+    );
     const currentBonus = Number(userData.bonus ?? 0);
     const amount = Number(transactionData.amount ?? 0);
 
@@ -827,7 +879,9 @@ export async function approveTransaction(transactionId: string) {
       const currentProfitUsed = Number(userData.profitUsed ?? 0);
       const availableProfit = Math.max(
         0,
-        round2(currentTotalProfit - currentProfitUsed)
+        round2(
+          currentTotalProfit + currentManualProfitAdjustment - currentProfitUsed
+        )
       );
 
       const available = currentBalance + availableProfit + currentBonus;
@@ -958,11 +1012,16 @@ export async function buyInvestmentPlan(params: {
     let currentBalance = round2(Number(userData.balance ?? 0));
     let currentBonus = round2(Number(userData.bonus ?? 0));
     const currentTotalProfit = round2(Number(userData.totalProfit ?? 0));
+    const currentManualProfitAdjustment = round2(
+      Number(userData.manualProfitAdjustment ?? 0)
+    );
     const currentProfitUsed = round2(Number(userData.profitUsed ?? 0));
 
     const availableProfit = Math.max(
       0,
-      round2(currentTotalProfit - currentProfitUsed)
+      round2(
+        currentTotalProfit + currentManualProfitAdjustment - currentProfitUsed
+      )
     );
 
     const planAmount = round2(Number(plan.amount ?? 0));
@@ -1525,3 +1584,105 @@ export async function setUserBlockedStatus(uid: string, blocked: boolean) {
     blocked,
   });
 }
+
+export async function adjustUserFinancials(params: {
+  adminUid: string;
+  userUid: string;
+  target: FinancialAdjustmentTarget;
+  action: FinancialAdjustmentAction;
+  amount: number;
+  reason: string;
+}) {
+  const { adminUid, userUid, target, action, reason } = params;
+  const amount = round2(Number(params.amount));
+
+  if (!adminUid) {
+    throw new Error("Administrador inválido.");
+  }
+
+  if (!userUid) {
+    throw new Error("Utilizador inválido.");
+  }
+
+  if (!amount || amount <= 0) {
+    throw new Error("Informe um valor válido.");
+  }
+
+  if (!reason?.trim()) {
+    throw new Error("Informe o motivo do ajuste.");
+  }
+
+  const adminRef = doc(db, "users", adminUid);
+  const userRef = doc(db, "users", userUid);
+  const adjustmentRef = doc(collection(db, "adminAdjustments"));
+
+  await runTransaction(db, async (tx) => {
+    const adminSnap = await tx.get(adminRef);
+
+    if (!adminSnap.exists()) {
+      throw new Error("Administrador não encontrado.");
+    }
+
+    const adminData: any = adminSnap.data();
+
+    if (adminData.role !== "admin") {
+      throw new Error("Apenas administradores podem fazer ajustes financeiros.");
+    }
+
+    const userSnap = await tx.get(userRef);
+
+    if (!userSnap.exists()) {
+      throw new Error("Utilizador não encontrado.");
+    }
+
+    const userData: any = userSnap.data();
+    const field = target === "profit" ? "manualProfitAdjustment" : target;
+
+    const currentValue = round2(Number(userData[field] ?? 0));
+    const delta = action === "increase" ? amount : -amount;
+    const nextValue = round2(currentValue + delta);
+
+    if (target === "balance" && nextValue < 0) {
+      throw new Error("O saldo do utilizador não pode ficar negativo.");
+    }
+
+    if (target === "bonus" && nextValue < 0) {
+      throw new Error("O bónus do utilizador não pode ficar negativo.");
+    }
+
+    if (target === "profit") {
+      const totalProfit = round2(Number(userData.totalProfit ?? 0));
+      const profitUsed = round2(Number(userData.profitUsed ?? 0));
+      const nextAvailableProfit = round2(totalProfit + nextValue - profitUsed);
+
+      if (nextAvailableProfit < 0) {
+        throw new Error("O lucro disponível do utilizador não pode ficar negativo.");
+      }
+    }
+
+    tx.update(userRef, {
+      [field]: nextValue,
+      updatedAt: serverTimestamp(),
+    });
+
+    tx.set(adjustmentRef, {
+      adminUid,
+      userUid,
+      target,
+      field,
+      action,
+      amount,
+      delta,
+      beforeValue: currentValue,
+      afterValue: nextValue,
+      reason: reason.trim(),
+      createdAt: serverTimestamp(),
+    });
+  });
+
+  return {
+    success: true,
+    message: "Ajuste financeiro aplicado com sucesso.",
+  };
+}
+
