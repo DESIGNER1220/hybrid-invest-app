@@ -18,6 +18,17 @@ type UserProfile = {
   role?: string;
 };
 
+const dashboardSlides = [
+  {
+    src: "/dashboard/server.jpg",
+    alt: "Infraestrutura",
+  },
+  {
+    src: "/dashboard/finance.jpg",
+    alt: "Investimento",
+  },
+];
+
 function formatMoney(value: number) {
   return Number(value || 0).toLocaleString("pt-MZ");
 }
@@ -30,6 +41,7 @@ export default function DashboardPage() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [bannerPaused, setBannerPaused] = useState(false);
   const [showPauseNotice, setShowPauseNotice] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(0);
 
   const companyLocation = "Montepuez, Cabo Delgado — Moçambique";
 
@@ -69,6 +81,14 @@ export default function DashboardPage() {
 
     return () => unsub();
   }, [router]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % dashboardSlides.length);
+    }, 3500);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const balance = Number(userData?.balance ?? 0);
   const totalProfit = Number(userData?.totalProfit ?? 0);
@@ -189,25 +209,37 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="space-y-2">
-          <div className="relative h-28 w-full overflow-hidden rounded-xl">
+        <div className="relative h-36 w-full overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-lg">
+          {dashboardSlides.map((slide, index) => (
             <Image
-              src="/dashboard/server.jpg"
-              alt="Infraestrutura"
+              key={slide.src}
+              src={slide.src}
+              alt={slide.alt}
               fill
               sizes="(max-width: 768px) 100vw, 384px"
-              className="object-cover"
+              className={`object-cover transition-opacity duration-700 ${
+                currentSlide === index ? "opacity-100" : "opacity-0"
+              }`}
+              priority={index === 0}
             />
-          </div>
+          ))}
 
-          <div className="relative h-28 w-full overflow-hidden rounded-xl">
-            <Image
-              src="/dashboard/finance.jpg"
-              alt="Investimento"
-              fill
-              sizes="(max-width: 768px) 100vw, 384px"
-              className="object-cover"
-            />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/5 to-transparent" />
+
+          <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-2">
+            {dashboardSlides.map((_, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => setCurrentSlide(index)}
+                className={`h-2 rounded-full transition-all ${
+                  currentSlide === index
+                    ? "w-6 bg-amber-400"
+                    : "w-2 bg-white/60"
+                }`}
+                aria-label={`Ver imagem ${index + 1}`}
+              />
+            ))}
           </div>
         </div>
 
