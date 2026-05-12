@@ -148,13 +148,13 @@ export default function DashboardPage() {
               <p className="text-[12px] font-medium uppercase tracking-wide text-slate-400">
                 Saldo total
               </p>
-              <h2 className="text-[7px] font-bold text-emerald-400">
+              <h2 className="text-[9px] font-bold text-emerald-400">
                 {formatMoney(total)} MZN
               </h2>
             </div>
 
             <div className="mb-1">
-              <p className="text-[7px] font-medium uppercase tracking-wide text-slate-400">
+              <p className="text-[8px] font-medium uppercase tracking-wide text-slate-400">
                 Lucro
               </p>
               <h3 className="text-[7px] font-bold text-cyan-400">
