@@ -290,6 +290,12 @@ function isWithdrawalTimeAllowed() {
   return !isWeekend && isBusinessHour;
 }
 
+function assertUserCanWithdraw(userData: any) {
+  if (userData?.blocked === true) {
+    throw new Error("Conta bloqueada. Não é permitido fazer levantamento.");
+  }
+}
+
 function getWeekendDepositBonusPercent(amount: number) {
   if (amount >= 5000) return 20;
   if (amount >= 1000) return 15;
@@ -732,14 +738,19 @@ export async function createTransaction(params: {
 
   if (!uid) throw new Error("Utilizador inválido.");
   if (!phone.trim()) throw new Error("Informe o número.");
-  if (!amount || amount <= 0) throw new Error("Informe um valor válido.");
+
+  const cleanAmount = round2(Number(amount));
+
+  if (!cleanAmount || cleanAmount <= 0) {
+    throw new Error("Informe um valor válido.");
+  }
 
   if (type === "deposito" && !transactionCode?.trim()) {
     throw new Error("Informe o ID da transação.");
   }
 
   if (type === "levantamento") {
-    if (amount < MIN_WITHDRAWAL_AMOUNT) {
+    if (cleanAmount < MIN_WITHDRAWAL_AMOUNT) {
       throw new Error(
         `O valor mínimo para levantamento é ${MIN_WITHDRAWAL_AMOUNT} MZN.`
       );
@@ -752,16 +763,38 @@ export async function createTransaction(params: {
     }
   }
 
-  await addDoc(collection(db, "transactions"), {
-    uid,
-    type,
-    method,
-    phone,
-    amount: Number(amount),
-    transactionCode: transactionCode?.trim() || "",
-    status: "pendente",
-    createdAt: serverTimestamp(),
+  const userRef = doc(db, "users", uid);
+  const transactionRef = doc(collection(db, "transactions"));
+
+  await runTransaction(db, async (tx) => {
+    const userSnap = await tx.get(userRef);
+
+    if (!userSnap.exists()) {
+      throw new Error("Utilizador não encontrado.");
+    }
+
+    const userData: any = userSnap.data();
+
+    if (type === "levantamento") {
+      assertUserCanWithdraw(userData);
+    }
+
+    tx.set(transactionRef, {
+      uid,
+      type,
+      method,
+      phone: phone.trim(),
+      amount: cleanAmount,
+      transactionCode: transactionCode?.trim() || "",
+      status: "pendente",
+      createdAt: serverTimestamp(),
+    });
   });
+
+  return {
+    success: true,
+    id: transactionRef.id,
+  };
 }
 
 export async function getUserTransactions(uid: string) {
@@ -867,6 +900,8 @@ export async function approveTransaction(transactionId: string) {
     }
 
     if (transactionData.type === "levantamento") {
+      assertUserCanWithdraw(userData);
+
       const activeReferralInvestors = Number(
         userData.activeReferralInvestors ?? 0
       );

@@ -23,6 +23,7 @@ type UserProfile = {
   availableProfit?: number;
   vipLevel?: string;
   withdrawalFeePercent?: number;
+  blocked?: boolean;
 };
 
 const MIN_WITHDRAWAL_AMOUNT = 200;
@@ -146,6 +147,10 @@ export default function LevantamentoPage() {
     return isWithdrawalTimeAllowed();
   }, []);
 
+  const userBlocked = useMemo(() => {
+    return profile?.blocked === true;
+  }, [profile]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -153,6 +158,11 @@ export default function LevantamentoPage() {
 
     if (!uid) {
       setErrorMsg("Usuário não autenticado.");
+      return;
+    }
+
+    if (userBlocked) {
+      setErrorMsg("A sua conta está bloqueada. Não é permitido fazer levantamento.");
       return;
     }
 
@@ -298,6 +308,12 @@ export default function LevantamentoPage() {
                   Neste momento os levantamentos estão fora do horário permitido.
                 </p>
               )}
+
+              {userBlocked && (
+                <p className="mt-2 text-xs font-semibold text-red-300">
+                  A sua conta está bloqueada. Não é permitido fazer levantamento.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -426,10 +442,14 @@ export default function LevantamentoPage() {
 
             <button
               type="submit"
-              disabled={submitting || !withdrawalAllowedNow}
+              disabled={submitting || !withdrawalAllowedNow || userBlocked}
               className="w-full rounded-xl bg-red-500 py-3 text-lg font-bold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting ? "Enviando..." : "Solicitar levantamento"}
+              {userBlocked
+                ? "Conta bloqueada"
+                : submitting
+                ? "Enviando..."
+                : "Solicitar levantamento"}
             </button>
           </form>
         </div>
