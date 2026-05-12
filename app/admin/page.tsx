@@ -140,8 +140,14 @@ export default function AdminPage() {
   async function handleReject(transactionId: string) {
     try {
       setBusyTransactionId(transactionId);
+
       await rejectTransaction(transactionId);
+
+      // Atualiza as transações e também a lista de utilizadores,
+      // para o saldo devolvido aparecer imediatamente no painel.
       await loadTransactions();
+      await loadUsers();
+
       alert("Transação rejeitada com sucesso.");
     } catch (error: any) {
       alert(error?.message || "Erro ao rejeitar transação.");

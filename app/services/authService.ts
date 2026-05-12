@@ -290,12 +290,6 @@ function isWithdrawalTimeAllowed() {
   return !isWeekend && isBusinessHour;
 }
 
-function assertUserCanWithdraw(userData: any) {
-  if (userData?.blocked === true) {
-    throw new Error("Conta bloqueada. Não é permitido fazer levantamento.");
-  }
-}
-
 function getWeekendDepositBonusPercent(amount: number) {
   if (amount >= 5000) return 20;
   if (amount >= 1000) return 15;
@@ -726,6 +720,73 @@ export async function getUserProfile(uid: string) {
   };
 }
 
+
+function calculateWithdrawalReservation(userData: any, amount: number) {
+  const currentBalance = round2(Number(userData.balance ?? 0));
+  const currentBonus = round2(Number(userData.bonus ?? 0));
+  const currentTotalProfit = round2(Number(userData.totalProfit ?? 0));
+  const currentManualProfitAdjustment = round2(
+    Number(userData.manualProfitAdjustment ?? 0)
+  );
+  const currentProfitUsed = round2(Number(userData.profitUsed ?? 0));
+
+  const activeReferralInvestors = Number(userData.activeReferralInvestors ?? 0);
+  const feePercent = getWithdrawalFeePercentByReferrals(activeReferralInvestors);
+  const feeAmount = round2(amount * (feePercent / 100));
+  const totalDeduction = round2(amount + feeAmount);
+
+  const availableProfit = Math.max(
+    0,
+    round2(currentTotalProfit + currentManualProfitAdjustment - currentProfitUsed)
+  );
+
+  const available = round2(currentBalance + availableProfit + currentBonus);
+
+  if (available < totalDeduction) {
+    throw new Error(`Saldo insuficiente. Necessário: ${totalDeduction} MZN`);
+  }
+
+  let remaining = totalDeduction;
+  let balanceDeducted = 0;
+  let profitDeducted = 0;
+  let bonusDeducted = 0;
+
+  if (currentBalance >= remaining) {
+    balanceDeducted = remaining;
+    remaining = 0;
+  } else {
+    balanceDeducted = currentBalance;
+    remaining = round2(remaining - currentBalance);
+  }
+
+  if (remaining > 0) {
+    if (availableProfit >= remaining) {
+      profitDeducted = remaining;
+      remaining = 0;
+    } else {
+      profitDeducted = availableProfit;
+      remaining = round2(remaining - availableProfit);
+    }
+  }
+
+  if (remaining > 0) {
+    bonusDeducted = remaining;
+    remaining = 0;
+  }
+
+  return {
+    feePercent,
+    feeAmount,
+    totalDeduction,
+    balanceDeducted: round2(balanceDeducted),
+    profitDeducted: round2(profitDeducted),
+    bonusDeducted: round2(bonusDeducted),
+    nextBalance: round2(currentBalance - balanceDeducted),
+    nextBonus: round2(currentBonus - bonusDeducted),
+    nextProfitUsed: round2(currentProfitUsed + profitDeducted),
+  };
+}
+
 export async function createTransaction(params: {
   uid: string;
   type: TransactionType;
@@ -763,6 +824,21 @@ export async function createTransaction(params: {
     }
   }
 
+  if (type === "deposito") {
+    await addDoc(collection(db, "transactions"), {
+      uid,
+      type,
+      method,
+      phone: phone.trim(),
+      amount: cleanAmount,
+      transactionCode: transactionCode?.trim() || "",
+      status: "pendente",
+      createdAt: serverTimestamp(),
+    });
+
+    return;
+  }
+
   const userRef = doc(db, "users", uid);
   const transactionRef = doc(collection(db, "transactions"));
 
@@ -775,9 +851,21 @@ export async function createTransaction(params: {
 
     const userData: any = userSnap.data();
 
-    if (type === "levantamento") {
-      assertUserCanWithdraw(userData);
+    if (userData.blocked === true) {
+      throw new Error(
+        "A sua conta está bloqueada. Não é permitido fazer levantamento."
+      );
     }
+
+    const reservation = calculateWithdrawalReservation(userData, cleanAmount);
+
+    // Corta/reserva o saldo imediatamente no momento do pedido de levantamento.
+    tx.update(userRef, {
+      balance: reservation.nextBalance,
+      bonus: reservation.nextBonus,
+      profitUsed: reservation.nextProfitUsed,
+      updatedAt: serverTimestamp(),
+    });
 
     tx.set(transactionRef, {
       uid,
@@ -787,15 +875,23 @@ export async function createTransaction(params: {
       amount: cleanAmount,
       transactionCode: transactionCode?.trim() || "",
       status: "pendente",
+
+      // Campos que permitem aprovar sem cortar novamente e rejeitar devolvendo.
+      withdrawalReserved: true,
+      withdrawalRefunded: false,
+      withdrawalFeePercent: reservation.feePercent,
+      withdrawalFeeAmount: reservation.feeAmount,
+      withdrawalNetAmount: cleanAmount,
+      withdrawalTotalDeduction: reservation.totalDeduction,
+      withdrawalBalanceDeducted: reservation.balanceDeducted,
+      withdrawalProfitDeducted: reservation.profitDeducted,
+      withdrawalBonusDeducted: reservation.bonusDeducted,
+
       createdAt: serverTimestamp(),
     });
   });
-
-  return {
-    success: true,
-    id: transactionRef.id,
-  };
 }
+
 
 export async function getUserTransactions(uid: string) {
   const q = query(collection(db, "transactions"), where("uid", "==", uid));
@@ -900,8 +996,23 @@ export async function approveTransaction(transactionId: string) {
     }
 
     if (transactionData.type === "levantamento") {
-      assertUserCanWithdraw(userData);
+      if (userData.blocked === true) {
+        throw new Error(
+          "Este utilizador está bloqueado. Não é permitido aprovar levantamento."
+        );
+      }
 
+      // Para novos levantamentos, o saldo já foi cortado no pedido.
+      // Aqui apenas aprovamos, sem cortar novamente.
+      if (transactionData.withdrawalReserved === true) {
+        tx.update(transactionRef, {
+          status: "aprovado",
+          processedAt: serverTimestamp(),
+        });
+        return;
+      }
+
+      // Compatibilidade com levantamentos antigos criados antes desta regra.
       const activeReferralInvestors = Number(
         userData.activeReferralInvestors ?? 0
       );
@@ -1013,14 +1124,106 @@ export async function approveTransaction(transactionId: string) {
   }
 }
 
+
 export async function rejectTransaction(transactionId: string) {
   const transactionRef = doc(db, "transactions", transactionId);
+  let affectedUid = "";
 
-  await updateDoc(transactionRef, {
-    status: "rejeitado",
-    processedAt: serverTimestamp(),
+  await runTransaction(db, async (tx) => {
+    const transactionSnap = await tx.get(transactionRef);
+
+    if (!transactionSnap.exists()) {
+      throw new Error("Transação não encontrada.");
+    }
+
+    const transactionData: any = transactionSnap.data();
+
+    if (transactionData.status !== "pendente") {
+      throw new Error("Esta transação já foi processada.");
+    }
+
+    affectedUid = String(transactionData.uid || "");
+
+    if (transactionData.type !== "levantamento") {
+      tx.update(transactionRef, {
+        status: "rejeitado",
+        processedAt: serverTimestamp(),
+      });
+      return;
+    }
+
+    if (!affectedUid) {
+      throw new Error("Utilizador inválido nesta transação.");
+    }
+
+    // Se for levantamento novo, devolve exactamente o que foi reservado.
+    if (transactionData.withdrawalReserved === true) {
+      if (transactionData.withdrawalRefunded === true) {
+        throw new Error("Este levantamento já foi devolvido.");
+      }
+
+      const userRef = doc(db, "users", affectedUid);
+      const userSnap = await tx.get(userRef);
+
+      if (!userSnap.exists()) {
+        throw new Error("Utilizador não encontrado.");
+      }
+
+      const userData: any = userSnap.data();
+
+      const currentBalance = round2(Number(userData.balance ?? 0));
+      const currentBonus = round2(Number(userData.bonus ?? 0));
+      const currentProfitUsed = round2(Number(userData.profitUsed ?? 0));
+
+      const balanceToReturn = round2(
+        Number(transactionData.withdrawalBalanceDeducted ?? 0)
+      );
+      const profitToReturn = round2(
+        Number(transactionData.withdrawalProfitDeducted ?? 0)
+      );
+      const bonusToReturn = round2(
+        Number(transactionData.withdrawalBonusDeducted ?? 0)
+      );
+
+      const refundAmount = round2(
+        balanceToReturn + profitToReturn + bonusToReturn
+      );
+
+      if (!refundAmount || refundAmount <= 0) {
+        throw new Error("Valor de devolução inválido para este levantamento.");
+      }
+
+      tx.update(userRef, {
+        balance: round2(currentBalance + balanceToReturn),
+        bonus: round2(currentBonus + bonusToReturn),
+        profitUsed: Math.max(0, round2(currentProfitUsed - profitToReturn)),
+        updatedAt: serverTimestamp(),
+      });
+
+      tx.update(transactionRef, {
+        status: "rejeitado",
+        withdrawalRefunded: true,
+        withdrawalRefundAmount: refundAmount,
+        refundedAt: serverTimestamp(),
+        processedAt: serverTimestamp(),
+      });
+
+      return;
+    }
+
+    // Compatibilidade com levantamentos antigos que não chegaram a reservar saldo.
+    tx.update(transactionRef, {
+      status: "rejeitado",
+      processedAt: serverTimestamp(),
+    });
   });
+
+  if (affectedUid) {
+    await syncUserProfit(affectedUid);
+    await syncVipDataForUser(affectedUid);
+  }
 }
+
 
 export async function buyInvestmentPlan(params: {
   uid: string;

@@ -13,7 +13,7 @@ export default function DownloadAppButton({
     <a
       href="/app/hybrid-invest.apk"
       download="Hybrid-Invest.apk"
-      className={`group mx-auto flex h-[48px] w-full max-w-[220px] items-center justify-center gap-3 rounded-[14px] border border-white/15 bg-[#111827] px-4 text-white shadow-lg transition duration-300 hover:scale-[1.02] hover:bg-black active:scale-[0.98] ${className}`}
+      className={`group mx-auto flex h-[48px] w-full max-w-[100px] items-center justify-center gap-3 rounded-[14px] border border-white/15 bg-[#111827] px-4 text-white shadow-lg transition duration-300 hover:scale-[1.02] hover:bg-black active:scale-[0.98] ${className}`}
     >
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm">
         <svg
@@ -32,11 +32,11 @@ export default function DownloadAppButton({
       </div>
 
       <div className="flex flex-col items-start leading-none">
-        <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-300">
+        <span className="text-[6px] font-semibold uppercase tracking-[0.12em] text-slate-300">
           Baixar agora
         </span>
 
-        <span className="mt-1 text-[15px] font-extrabold tracking-wide text-white">
+        <span className="mt-1 text-[6px] font-extrabold tracking-wide text-green">
           {label}
         </span>
       </div>
