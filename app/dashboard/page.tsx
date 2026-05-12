@@ -119,18 +119,18 @@ export default function DashboardPage() {
         <LogOut size={18} />
       </button>
 
-      <div className="mx-auto max-w-sm space-y-4 pt-12">
+      <div className="mx-auto max-w-sm space-y-3 pt-12">
         <div
           onClick={handleBannerTap}
-          className="relative overflow-hidden rounded-xl border border-amber-500/20 bg-amber-500/10 py-2"
+          className="relative overflow-hidden rounded-xl border border-amber-500/20 bg-amber-500/10 py-1.5"
         >
           {showPauseNotice ? (
-            <div className="px-3 text-center text-[11px] font-bold text-amber-200">
+            <div className="px-3 text-center text-[10px] font-bold text-amber-200">
               AVISO PARAR
             </div>
           ) : (
             <div
-              className={`whitespace-nowrap px-2 text-[11px] font-bold text-amber-300 ${
+              className={`whitespace-nowrap px-2 text-[10px] font-bold text-amber-300 ${
                 bannerPaused ? "animate-none" : "animate-marquee"
               }`}
             >
@@ -142,32 +142,38 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow">
-          <div className="rounded-xl bg-emerald-500/10 p-3 text-center">
-            <p className="text-[10px] text-slate-300">Saldo total</p>
-            <h2 className="text-lg font-bold text-emerald-400">
-              {formatMoney(total)} MZN
-            </h2>
-          </div>
+        <div className="flex w-full justify-start">
+          <div className="w-full text-left leading-tight">
+            <div className="mb-1">
+              <p className="text-[12px] font-medium uppercase tracking-wide text-slate-400">
+                Saldo total
+              </p>
+              <h2 className="text-[7px] font-bold text-emerald-400">
+                {formatMoney(total)} MZN
+              </h2>
+            </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <div className="rounded-xl bg-cyan-500/10 p-3 text-center">
-              <p className="text-[10px] text-slate-300">Lucro</p>
-              <h3 className="text-sm font-bold text-cyan-400">
+            <div className="mb-1">
+              <p className="text-[7px] font-medium uppercase tracking-wide text-slate-400">
+                Lucro
+              </p>
+              <h3 className="text-[7px] font-bold text-cyan-400">
                 {formatMoney(availableProfit)} MZN
               </h3>
             </div>
 
-            <div className="rounded-xl bg-blue-500/10 p-3 text-center">
-              <p className="text-[10px] text-slate-300">Bónus</p>
-              <h3 className="text-sm font-bold text-blue-400">
+            <div className="mb-1">
+              <p className="text-[7px] font-medium uppercase tracking-wide text-slate-400">
+                Bónus
+              </p>
+              <h3 className="text-[7px] font-bold text-blue-400">
                 {formatMoney(bonus)} MZN
               </h3>
             </div>
-          </div>
 
-          <div className="mt-2 text-center text-[10px] text-slate-500">
-            Lucro bruto calculado: {formatMoney(totalProfit)} MZN
+            <div className="text-[7px] text-slate-500">
+              Lucro bruto calculado: {formatMoney(totalProfit)} MZN
+            </div>
           </div>
         </div>
 
@@ -175,7 +181,7 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => router.push("/deposito")}
-            className="rounded-xl bg-emerald-500 py-2 text-xs font-bold text-black"
+            className="rounded-xl bg-emerald-500 py-2 text-[11px] font-bold text-black"
           >
             Depositar
           </button>
@@ -183,7 +189,7 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => router.push("/levantamento")}
-            className="rounded-xl bg-amber-500 py-2 text-xs font-bold text-black"
+            className="rounded-xl bg-amber-500 py-2 text-[11px] font-bold text-black"
           >
             Levantar
           </button>
@@ -191,7 +197,7 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => router.push("/chat-global")}
-            className="rounded-xl bg-cyan-500 py-2 text-xs font-bold text-black"
+            className="rounded-xl bg-cyan-500 py-2 text-[11px] font-bold text-black"
           >
             Suporte
           </button>
@@ -202,7 +208,7 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => router.push("/admin")}
-              className="rounded-xl bg-red-500 px-4 py-2 text-xs font-bold text-white shadow-lg hover:bg-red-400"
+              className="rounded-xl bg-red-500 px-4 py-2 text-[11px] font-bold text-white shadow-lg hover:bg-red-400"
             >
               Painel do Administrador
             </button>
@@ -244,15 +250,15 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3 shadow">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
-            <MapPin size={20} />
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
+            <MapPin size={18} />
           </div>
 
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">
               Nossa localização
             </p>
-            <p className="text-sm font-bold text-emerald-300">
+            <p className="text-xs font-bold text-emerald-300">
               {companyLocation}
             </p>
           </div>
@@ -268,7 +274,7 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 rounded bg-gray-700 py-2"
+                className="flex-1 rounded bg-gray-700 py-2 text-sm"
               >
                 Cancelar
               </button>
@@ -276,7 +282,7 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="flex-1 rounded bg-red-500 py-2"
+                className="flex-1 rounded bg-red-500 py-2 text-sm"
               >
                 Sair
               </button>
