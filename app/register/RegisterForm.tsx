@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { registerUser } from "../services/authService";
+import Loader from "../components/Loader";
 
 export default function RegisterForm() {
   const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -20,10 +20,7 @@ export default function RegisterForm() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-
-    const params = new URLSearchParams(window.location.search);
-    const ref = params.get("ref");
-
+    const ref = new URLSearchParams(window.location.search).get("ref");
     if (ref?.trim()) {
       setRefCode(ref.trim().toUpperCase());
       setAutoFilled(true);
@@ -32,12 +29,10 @@ export default function RegisterForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-
     try {
       setLoading(true);
       setErrorMsg("");
       setSuccessMsg("");
-
       await registerUser({
         email: email.trim(),
         phone: phone.trim(),
@@ -45,12 +40,8 @@ export default function RegisterForm() {
         confirmPassword,
         refCode: refCode.trim() || null,
       });
-
       setSuccessMsg("Sucesso");
-
-      setTimeout(() => {
-        router.push("/login");
-      }, 2000);
+      setTimeout(() => router.push("/login"), 2000);
     } catch (error: any) {
       setErrorMsg(error?.message || "Erro ao criar conta.");
     } finally {
@@ -58,113 +49,77 @@ export default function RegisterForm() {
     }
   }
 
+  if (loading) return <Loader />;
+
   return (
-    <>
-      {successMsg && (
-        <div className="mb-4 rounded-xl border border-emerald-400 bg-emerald-500/20 px-3 py-2 text-center text-sm font-bold text-emerald-300">
-          {successMsg}
-        </div>
-      )}
-
-      {errorMsg && (
-        <div className="mb-4 rounded-xl border border-red-400 bg-red-500/20 px-3 py-2 text-center text-sm text-red-300">
-          {errorMsg}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
-        <div>
-          <label className="mb-1 block text-sm text-slate-300">Email</label>
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 px-3 py-4 text-white">
+      <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-white/5 p-5 shadow-xl backdrop-blur">
+        {successMsg && (
+          <div className="mb-4 rounded-xl border border-emerald-400 bg-emerald-500/20 px-3 py-2 text-center text-sm font-bold text-emerald-300">
+            {successMsg}
+          </div>
+        )}
+        {errorMsg && (
+          <div className="mb-4 rounded-xl border border-red-400 bg-red-500/20 px-3 py-2 text-center text-sm text-red-300">
+            {errorMsg}
+          </div>
+        )}
+        <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="email"
+            placeholder="Seu email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="Seu email"
             className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
             required
-            autoComplete="email"
           />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm text-slate-300">
-            Número de telefone
-          </label>
           <input
             type="tel"
+            placeholder="Número de telefone"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="Número de telefone"
             className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
             required
-            autoComplete="tel"
           />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm text-slate-300">Senha</label>
           <input
             type="password"
+            placeholder="Senha"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Sua senha"
             className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
             required
-            autoComplete="new-password"
           />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm text-slate-300">
-            Confirmar senha
-          </label>
           <input
             type="password"
+            placeholder="Confirmar senha"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Confirme a senha"
             className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
             required
-            autoComplete="new-password"
           />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm text-slate-300">
-            Código de referência
-          </label>
           <input
             type="text"
+            placeholder="Código de referência"
             value={refCode}
             onChange={(e) => setRefCode(e.target.value.toUpperCase())}
-            placeholder="Código de referência"
-            className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
-            autoComplete="off"
             readOnly={autoFilled}
+            className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
           />
-
-          {autoFilled && (
-            <p className="mt-1 text-xs font-semibold text-emerald-400">
-              Código preenchido automaticamente
-            </p>
-          )}
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-xl bg-amber-400 py-3 text-lg font-bold text-black transition hover:bg-amber-300 disabled:opacity-70"
-        >
-          {loading ? "Criando..." : "Criar conta"}
-        </button>
-      </form>
-
-      <p className="mt-5 text-center text-sm text-slate-300">
-        Já tem conta?{" "}
-        <Link href="/login" className="font-bold text-amber-400">
-          Entrar
-        </Link>
-      </p>
-    </>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-xl bg-amber-400 py-3 text-lg font-bold text-black transition hover:bg-amber-300 disabled:opacity-70"
+          >
+            Criar conta
+          </button>
+        </form>
+        <p className="mt-5 text-center text-sm text-slate-300">
+          Já tem conta?{" "}
+          <Link href="/login" className="font-bold text-amber-400">
+            Entrar
+          </Link>
+        </p>
+      </div>
+    </main>
   );
 }

@@ -4,10 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { loginUserByPhone } from "../services/authService";
+import Loader from "../components/Loader";
 
 export default function LoginPage() {
   const router = useRouter();
-
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,7 +17,6 @@ export default function LoginPage() {
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-
     try {
       setLoading(true);
       setErrorMsg("");
@@ -29,15 +28,15 @@ export default function LoginPage() {
       setSuccess("Sucesso");
       setShowNotice(true);
 
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 5000);
+      setTimeout(() => router.push("/dashboard"), 5000);
     } catch (error: any) {
       setErrorMsg(error?.message || "Erro ao iniciar sessão.");
     } finally {
       setLoading(false);
     }
   }
+
+  if (loading) return <Loader />;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 px-3 py-4 text-white">
@@ -47,7 +46,6 @@ export default function LoginPage() {
         </p>
 
         <h1 className="mt-2 text-center text-3xl font-bold">Login</h1>
-
         <p className="mt-2 text-center text-sm text-slate-300">
           Entre com seu número e senha
         </p>
@@ -63,14 +61,8 @@ export default function LoginPage() {
             <p className="text-sm font-bold leading-relaxed text-amber-200">
               Não utilizamos grupos de WhatsApp, nem Telegram.
             </p>
-
             <p className="mt-2 text-xs leading-relaxed text-white">
-              Para qualquer dúvida por favor entre em contacto aqui na nossa
-              plataforma, no ícone verde abaixo no lado direito.
-            </p>
-
-            <p className="mt-2 text-xs font-bold leading-relaxed text-emerald-300">
-              Obrigado. Juntos faturamos, juntos venceremos.
+              Para dúvidas, use o ícone verde no canto direito.
             </p>
           </div>
         )}
@@ -82,40 +74,28 @@ export default function LoginPage() {
         )}
 
         <form onSubmit={handleLogin} className="mt-6 space-y-4">
-          <div>
-            <label className="mb-1 block text-sm text-slate-300">
-              Número de telefone
-            </label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="Número de telefone"
-              className="w-full rounded-xl bg-white px-4 py-3 text-base text-black outline-none"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm text-slate-300">
-              Senha
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Sua senha"
-              className="w-full rounded-xl bg-white px-4 py-3 text-base text-black outline-none"
-              required
-            />
-          </div>
-
+          <input
+            type="tel"
+            placeholder="Número de telefone"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
+            required
+          />
+          <input
+            type="password"
+            placeholder="Senha"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
+            required
+          />
           <button
             type="submit"
             disabled={loading}
             className="w-full rounded-xl bg-amber-400 py-3 text-lg font-bold text-black transition hover:bg-amber-300 disabled:opacity-70"
           >
-            {loading ? "Entrando..." : "Entrar"}
+            Entrar
           </button>
         </form>
 
@@ -126,19 +106,6 @@ export default function LoginPage() {
           </Link>
         </p>
       </div>
-
-      <style jsx global>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </main>
   );
 }

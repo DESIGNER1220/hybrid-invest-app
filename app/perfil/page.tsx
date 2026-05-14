@@ -20,6 +20,7 @@ import {
   redeemBonusCode,
 } from "../services/authService";
 import BottomNav from "../components/BottomNav";
+import Loader from "../components/Loader"; // <-- import do loader
 
 type UserProfile = {
   uid: string;
@@ -43,7 +44,7 @@ export default function PerfilPage() {
   const router = useRouter();
 
   const [uid, setUid] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // <-- controla loader
   const [loggingOut, setLoggingOut] = useState(false);
   const [redeeming, setRedeeming] = useState(false);
 
@@ -67,7 +68,7 @@ export default function PerfilPage() {
       } catch (error: any) {
         setErrorMsg(error?.message || "Erro ao carregar perfil.");
       } finally {
-        setLoading(false);
+        setLoading(false); // <-- loader desativa aqui
       }
     });
 
@@ -140,13 +141,11 @@ export default function PerfilPage() {
     }
   }
 
+  // === Loader animado quando a página carrega ===
   if (loading) {
-    return (
-      <main className="min-h-screen bg-[#020817] p-4 text-white">
-        Carregando...
-      </main>
-    );
+    return <Loader />;
   }
+  // ============================================
 
   return (
     <main className="min-h-screen bg-[#020817] px-3 pt-3 pb-28 text-white">
@@ -170,6 +169,7 @@ export default function PerfilPage() {
           </div>
         )}
 
+        {/* VIP, Taxa, Convidados, Válidos VIP */}
         <div className="rounded-3xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-emerald-500/10 p-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-2xl bg-black/20 p-4">
@@ -222,16 +222,15 @@ export default function PerfilPage() {
           </div>
         </div>
 
+        {/* Código de referência */}
         <div className="rounded-3xl border border-amber-500/20 bg-white/5 p-4">
           <p className="mb-3 text-sm font-bold text-amber-300">
             Código de referência
           </p>
-
           <div className="flex gap-2">
             <div className="flex-1 rounded-2xl bg-[#07122b] px-4 py-4 text-base font-bold tracking-wide text-white">
               {profile?.referralCode || "Sem código"}
             </div>
-
             <button
               type="button"
               onClick={() =>
@@ -244,16 +243,15 @@ export default function PerfilPage() {
           </div>
         </div>
 
+        {/* Link de convite */}
         <div className="rounded-3xl border border-cyan-500/20 bg-white/5 p-4">
           <div className="mb-3 flex items-center gap-2 text-cyan-300">
             <LinkIcon size={18} />
             <span className="text-sm font-bold">Link de convite</span>
           </div>
-
           <div className="rounded-2xl bg-[#07122b] px-4 py-4 text-sm text-white break-all">
             {inviteLink || "Sem link disponível"}
           </div>
-
           <button
             type="button"
             onClick={() => handleCopy(inviteLink, "Link copiado.")}
@@ -264,12 +262,12 @@ export default function PerfilPage() {
           </button>
         </div>
 
+        {/* Resgatar bônus */}
         <div className="rounded-3xl border border-emerald-500/20 bg-emerald-500/10 p-4">
           <div className="mb-3 flex items-center gap-2 text-emerald-300">
             <Gift size={18} />
             <span className="text-sm font-bold">Resgatar bónus</span>
           </div>
-
           <input
             type="text"
             value={bonusCode}
@@ -277,7 +275,6 @@ export default function PerfilPage() {
             placeholder="Digite o código de bónus"
             className="w-full rounded-2xl border border-white/10 bg-[#07122b] px-4 py-4 text-white outline-none placeholder:text-slate-500"
           />
-
           <button
             type="button"
             onClick={handleRedeemBonus}
@@ -288,6 +285,7 @@ export default function PerfilPage() {
           </button>
         </div>
 
+        {/* Saldo, Lucro, Bônus */}
         <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
           <div className="grid grid-cols-3 gap-3 text-center">
             <div className="rounded-2xl bg-black/20 p-3">
@@ -296,14 +294,12 @@ export default function PerfilPage() {
                 {money(profile?.balance)}
               </p>
             </div>
-
             <div className="rounded-2xl bg-black/20 p-3">
               <p className="text-xs text-slate-400">Lucro</p>
               <p className="mt-1 text-sm font-bold text-emerald-300">
                 {money(profile?.totalProfit)}
               </p>
             </div>
-
             <div className="rounded-2xl bg-black/20 p-3">
               <p className="text-xs text-slate-400">Bónus</p>
               <p className="mt-1 text-sm font-bold text-amber-300">
@@ -313,6 +309,7 @@ export default function PerfilPage() {
           </div>
         </div>
 
+        {/* Logout */}
         <button
           type="button"
           onClick={handleLogout}

@@ -42,8 +42,44 @@ const PLAN_IMAGES: Record<string, string> = {
   "alto-btc-8": "/plans/alto-btc-8.png",
 };
 
+const NORMAL_PLANS_EXPIRY_KEY = "hybr_normal_plans_expire_at";
+const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+
 function formatMoney(value: number) {
   return Number(value || 0).toLocaleString("pt-MZ");
+}
+
+function getNormalPlansExpireAt() {
+  if (typeof window === "undefined") {
+    return Date.now() + THREE_DAYS_MS;
+  }
+
+  const savedExpireAt = Number(localStorage.getItem(NORMAL_PLANS_EXPIRY_KEY));
+
+  if (savedExpireAt && savedExpireAt > 0) {
+    return savedExpireAt;
+  }
+
+  const expireAt = Date.now() + THREE_DAYS_MS;
+  localStorage.setItem(NORMAL_PLANS_EXPIRY_KEY, String(expireAt));
+
+  return expireAt;
+}
+
+function formatCountdown(ms: number) {
+  const safeMs = Math.max(0, ms);
+
+  const totalSeconds = Math.floor(safeMs / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (days > 0) {
+    return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+  }
+
+  return `${hours}h ${minutes}m ${seconds}s`;
 }
 
 export default function InvestimentosPage() {
@@ -55,11 +91,27 @@ export default function InvestimentosPage() {
   const [footerMessage, setFooterMessage] = useState("");
   const [footerType, setFooterType] = useState<"success" | "error" | "">("");
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [normalPlansExpireAt, setNormalPlansExpireAt] = useState<number | null>(
+    null
+  );
+  const [now, setNow] = useState(Date.now());
 
   async function loadProfile(userId: string) {
     const userProfile = await getUserProfile(userId);
     setProfile((userProfile || null) as UserProfile | null);
   }
+
+  useEffect(() => {
+    const expireAt = getNormalPlansExpireAt();
+    setNormalPlansExpireAt(expireAt);
+    setNow(Date.now());
+
+    const interval = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -86,6 +138,21 @@ export default function InvestimentosPage() {
 
   async function handleBuy(planId: string) {
     if (!uid || buyingId) return;
+
+    const planIsNormal = INVESTMENT_PLANS.some(
+      (plan) =>
+        plan.id === planId && !plan.isPremium && !plan.id.startsWith("alto-btc")
+    );
+
+    if (
+      planIsNormal &&
+      normalPlansExpireAt !== null &&
+      normalPlansExpireAt <= Date.now()
+    ) {
+      setFooterType("error");
+      setFooterMessage("Este plano já está esgotado.");
+      return;
+    }
 
     try {
       setBuyingId(planId);
@@ -138,6 +205,18 @@ export default function InvestimentosPage() {
       ),
     []
   );
+
+  const normalPlansTimeLeft = useMemo(() => {
+    if (normalPlansExpireAt === null) return THREE_DAYS_MS;
+    return Math.max(0, normalPlansExpireAt - now);
+  }, [normalPlansExpireAt, now]);
+
+  const normalPlansAreAvailable = normalPlansTimeLeft > 0;
+
+  const visibleNormalPlans = useMemo(() => {
+    if (!normalPlansAreAvailable) return [];
+    return normalPlans;
+  }, [normalPlans, normalPlansAreAvailable]);
 
   if (loading) {
     return (
@@ -333,11 +412,44 @@ export default function InvestimentosPage() {
         )}
 
         <section className="space-y-3">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-slate-300">
-            Planos HYBR
-          </h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-300">
+              Planos HYBR
+            </h2>
 
-          {normalPlans.map((plan) => {
+            {normalPlansAreAvailable && (
+              <div className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-right">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-red-300">
+                  Esgota em
+                </p>
+                <p className="text-xs font-black text-red-400">
+                  {formatCountdown(normalPlansTimeLeft)}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {normalPlansAreAvailable && (
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-3">
+              <p className="text-xs font-semibold text-red-200">
+                Estes planos ficam disponíveis por tempo limitado. Quando a
+                contagem chegar a 0h, eles somem automaticamente.
+              </p>
+            </div>
+          )}
+
+          {!normalPlansAreAvailable && (
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-center">
+              <p className="text-sm font-bold text-red-300">
+                Planos HYBR esgotados.
+              </p>
+              <p className="mt-1 text-xs text-slate-300">
+                Novos planos estarão disponíveis em breve.
+              </p>
+            </div>
+          )}
+
+          {visibleNormalPlans.map((plan) => {
             const imageSrc = PLAN_IMAGES[plan.id] || FALLBACK_IMAGE;
             const finalReturn =
               plan.finalReturn ??
@@ -359,6 +471,15 @@ export default function InvestimentosPage() {
                     sizes="(max-width: 768px) 100vw, 448px"
                     className="object-cover"
                   />
+                </div>
+
+                <div className="mb-3 rounded-xl border border-red-500/20 bg-red-500/10 p-3">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-red-300">
+                    Estoque limitado
+                  </p>
+                  <p className="mt-1 text-sm font-black text-red-400">
+                    Esgota em {formatCountdown(normalPlansTimeLeft)}
+                  </p>
                 </div>
 
                 <div className="flex items-start justify-between gap-3">
@@ -401,7 +522,7 @@ export default function InvestimentosPage() {
 
                 <button
                   onClick={() => handleBuy(plan.id)}
-                  disabled={buyingId === plan.id}
+                  disabled={buyingId === plan.id || !normalPlansAreAvailable}
                   className="mt-4 w-full rounded-xl bg-amber-500 py-3 text-sm font-bold text-black transition hover:bg-amber-400 disabled:opacity-70"
                 >
                   {buyingId === plan.id ? "Processando..." : "Alugar"}
@@ -416,7 +537,7 @@ export default function InvestimentosPage() {
         <div
           className={`fixed bottom-20 left-1/2 z-40 w-[92%] max-w-md -translate-x-1/2 rounded-xl px-4 py-3 text-center shadow-lg backdrop-blur-sm ${
             footerType === "success"
-              ? "border border-emerald-500/30 bg-emerald-500/15"
+              ? "border border-emerald-300/30 bg-emerald-500/15"
               : "border border-red-500/30 bg-red-500/10"
           }`}
         >
