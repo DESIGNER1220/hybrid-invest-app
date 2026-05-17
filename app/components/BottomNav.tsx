@@ -47,7 +47,7 @@ export default function BottomNav() {
   const isHistoricos = pathname === "/historicos";
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-[#020817] pb-2 pt-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-green/10 bg-[#020817] pb-2 pt-2">
       <div className="mx-auto flex max-w-md items-end justify-around px-1">
         {/* INICIO */}
         <Link
@@ -90,7 +90,7 @@ export default function BottomNav() {
                 : "bg-amber-500 text-black"
             }`}
           >
-            HYBR
+            PROJE
           </div>
         </Link>
 
