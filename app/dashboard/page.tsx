@@ -52,10 +52,11 @@ export default function DashboardPage() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [showWelcome, setShowWelcome] = useState(true);
 
-  // Modal Invite Friends
+  // Modals
   const [showReferralModal, setShowReferralModal] = useState(false);
   const [referralCode, setReferralCode] = useState("");
-  const siteLink = "https://hybridmining.com"; // Link fixo do site
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const siteLink = "https://hybridmining.com";
 
   const companyLocation = "Montepuez, Cabo Delgado — Moçambique";
 
@@ -69,9 +70,9 @@ export default function DashboardPage() {
     router.push("/login");
   }
 
-  // Download automático do APK
+  // Download automático APK
   function downloadApp() {
-    const apkPath = "/files/hybridmining.apk"; // colocar o APK na pasta public/files/
+    const apkPath = "/files/hybridmining.apk";
     const link = document.createElement("a");
     link.href = apkPath;
     link.download = "HybridMining.apk";
@@ -90,12 +91,16 @@ export default function DashboardPage() {
     }
   }
 
-  // Copiar link do invite friends
   function copyReferralLink() {
     const fullLink = `${siteLink}?ref=${referralCode}`;
     navigator.clipboard.writeText(fullLink).then(() => {
       alert("Link copiado para a área de transferência!");
     });
+  }
+
+  // Modal Agency Company
+  function handleCompanyInfo() {
+    setShowCompanyModal(true);
   }
 
   useEffect(() => {
@@ -139,7 +144,6 @@ export default function DashboardPage() {
 
       <div className="mx-auto max-w-md px-4 pt-4">
 
-        {/* Mensagem de boas-vindas */}
         {showWelcome && (
           <div className="mb-5 rounded-2xl bg-white/10 p-4 shadow-lg border border-white/20 animate-fade-in">
             <p className="text-sm font-bold text-amber-200 mb-2">Por favor clique no Suporte em caso de dificuldades.</p>
@@ -184,17 +188,17 @@ export default function DashboardPage() {
 
         {/* Grid de atalhos responsivo */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-5">
-          <MenuCard label="Recharge" icon={<Wallet size={28} />} onClick={() => router.push("/deposito")} />
-          <MenuCard label="Withdraw" icon={<Download size={28} />} onClick={() => router.push("/levantamento")} />
-          <MenuCard label="App" icon={<Download size={28} />} onClick={downloadApp} />
-          <MenuCard label="Company Profile" icon={<Building2 size={28} />} onClick={() => router.push("/company-profile")} />
-          <MenuCard label="Invite Friends" icon={<Users size={28} />} onClick={handleInviteFriends} />
-          <MenuCard label="Agency Cooperation" icon={<Handshake size={28} />} onClick={() => router.push("/agency")} />
+          <MenuCard label="Recharge" icon={<Wallet size={15} />} onClick={() => router.push("/deposito")} />
+          <MenuCard label="Withdraw" icon={<Download size={15} />} onClick={() => router.push("/levantamento")} />
+          <MenuCard label="App" icon={<Download size={15} />} onClick={downloadApp} />
+          <MenuCard label="Company Profile" icon={<Building2 size={15} />} onClick={handleCompanyInfo} />
+          <MenuCard label="Invite Friends" icon={<Users size={15} />} onClick={handleInviteFriends} />
+          <MenuCard label="Agency Cooperation" icon={<Handshake size={15} />} onClick={handleCompanyInfo} />
         </div>
 
         {/* Slider */}
-        <div className="relative mb-5 overflow-hidden rounded-[28px]">
-          <div className="relative h-72 w-full">
+        <div className="relative mb-5 overflow-hidden rounded-[30px]">
+          <div className="relative h-50 w-full">
             {dashboardSlides.map((slide, index) => (
               <img key={index} src={slide.src} alt={slide.alt} className={`absolute inset-0 object-cover transition-opacity duration-700 ${currentSlide === index ? "opacity-100" : "opacity-0"}`} />
             ))}
@@ -208,8 +212,8 @@ export default function DashboardPage() {
         </div>
 
         {/* Localização */}
-        <div className="mt-5 flex items-center gap-3 rounded-[24px] bg-white/10 p-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10"><MapPin size={22} /></div>
+        <div className="mt-5 flex items-center gap-3 rounded-[10px] bg-white/10 p-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10"><MapPin size={15} /></div>
           <div>
             <p className="text-xs uppercase tracking-wide text-white/60">Nossa localização</p>
             <p className="text-sm font-semibold">{companyLocation}</p>
@@ -238,7 +242,25 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => setShowReferralModal(false)}
-              className="mt-2 w-full rounded-xl border border-amber-400 py-2 text-sm text-amber-400 hover:bg-white/10 transition"
+              className="mt-2 w-full rounded-xl border border-amber-200 py-2 text-sm text-amber-400 hover:bg-white/10 transition"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Company */}
+      {showCompanyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white/5 p-6 shadow-xl backdrop-blur animate-fade-in border border-white/20">
+            <h2 className="text-center text-lg font-bold text-white mb-4">Sobre a Empresa</h2>
+            <p className="text-center text-white text-sm">
+              A empresa moçambicana que veio para ajudar os moçambicanos sobre vida financeira, teve o seu início no dia 02 de Abril de 2026 com um contrato assinado com a administração financeira moçambicana de 5 anos de trabalho, beneficiando os moçambicanos.
+            </p>
+            <button
+              onClick={() => setShowCompanyModal(false)}
+              className="mt-4 w-full rounded-xl border border-amber-200 py-2 text-sm text-amber-400 hover:bg-white/10 transition"
             >
               Fechar
             </button>
@@ -249,11 +271,11 @@ export default function DashboardPage() {
       {/* Modal logout */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-          <div className="w-72 rounded-2xl bg-slate-900 p-4 text-center">
+          <div className="w-50 rounded-2xl bg-slate-600 p-4 text-center">
             <p className="mb-4 text-sm">Sair da conta?</p>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setShowLogoutConfirm(false)} className="flex-1 rounded-xl bg-gray-700 py-2 text-sm">Cancelar</button>
-              <button type="button" onClick={handleLogout} className="flex-1 rounded-xl bg-red-500 py-2 text-sm">Sair</button>
+              <button type="button" onClick={() => setShowLogoutConfirm(false)} className="flex-1 rounded-xl bg-gray-300 py-2 text-sm">Cancelar</button>
+              <button type="button" onClick={handleLogout} className="flex-1 rounded-xl bg-red-300 py-2 text-sm">Sair</button>
             </div>
           </div>
         </div>
