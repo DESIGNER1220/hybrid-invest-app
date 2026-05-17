@@ -3,23 +3,11 @@
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import {
-  LogOut,
-  Globe,
-  Wallet,
-  Download,
-  Building2,
-  Users,
-  Handshake,
-  MapPin,
-  Bell,
-  Headset,
-} from "lucide-react";
-
 import { auth } from "../lib/firebase";
 import { getUserProfile, logoutUser } from "../services/authService";
 import BottomNav from "../components/BottomNav";
 import Loader from "../components/Loader";
+import { Wallet, Download, Users, Handshake, MapPin, Building2 } from "lucide-react";
 
 type UserProfile = {
   balance?: number;
@@ -45,7 +33,7 @@ function MenuCard({ label, icon, onClick }: MenuCardProps) {
     <button
       type="button"
       onClick={onClick}
-      className="group rounded-[18px] bg-white/5 p-3 shadow-[0_06px_10px_rgba(0,0,0,0.25)] transition hover:scale-[1.02] active:scale-[0.98]"
+      className="group rounded-[26px] bg-white/5 p-3 shadow-[0_10px_30px_rgba(0,0,0,0.25)] transition hover:scale-[1.02] active:scale-[0.98]"
     >
       <div className="flex flex-col items-center justify-center gap-3">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-300 via-emerald-300 to-cyan-300 text-white shadow-lg">
@@ -63,6 +51,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [showWelcome, setShowWelcome] = useState(true);
+
   const companyLocation = "Montepuez, Cabo Delgado — Moçambique";
 
   async function load(uid: string) {
@@ -75,6 +65,11 @@ export default function DashboardPage() {
     router.push("/login");
   }
 
+  // Função de download do app (mantendo como no dashboard antigo)
+  function downloadApp() {
+    window.open("https://link-do-seu-app.com/download", "_blank");
+  }
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) router.push("/login");
@@ -83,6 +78,15 @@ export default function DashboardPage() {
     return () => unsub();
   }, [router]);
 
+  // Mensagem inicial desaparece após 8 segundos
+  useEffect(() => {
+    if (showWelcome) {
+      const timer = setTimeout(() => setShowWelcome(false), 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [showWelcome]);
+
+  // Slider automático
   useEffect(() => {
     const timer = setInterval(() => setCurrentSlide((prev) => (prev + 1) % dashboardSlides.length), 3500);
     return () => clearInterval(timer);
@@ -98,18 +102,26 @@ export default function DashboardPage() {
   if (loading) return <Loader message="Carregando dados..." />;
 
   return (
-    <main className="relative min-h-screen pb-24 text-white
-      bg-gradient-to-br from-[#0f1e3c] via-[#071224] to-[#0f243f] overflow-hidden">
+    <main className="relative min-h-screen pb-24 text-white bg-gradient-to-br from-[#0f1e3c] via-[#071224] to-[#0f243f] overflow-hidden">
 
-      {/* Fundo tech/raios em CSS */}
+      {/* Fundo tech/raios CSS */}
       <div className="absolute inset-0 -z-10">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(0,255,255,0.05)_0%,_transparent_70%)] animate-pulse" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_rgba(255,128,0,0.03)_0%,_transparent_70%)] animate-pulse delay-200" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_rgba(0,255,128,0.03)_0%,_transparent_70%)] animate-pulse delay-400" />
       </div>
 
-      {/* Topo */}
       <div className="mx-auto max-w-md px-4 pt-4">
+
+        {/* Mensagem de boas-vindas */}
+        {showWelcome && (
+          <div className="mb-5 rounded-2xl bg-white/10 p-4 shadow-lg border border-white/20 animate-fade-in">
+            <p className="text-sm font-bold text-amber-200 mb-2">Por favor clique no Suporte em caso de dificuldades.</p>
+            <p className="text-sm font-bold text-white">Participa nas reuniões para ganhar bônus Segunda e Sexta às 20h.</p>
+          </div>
+        )}
+
+        {/* Topo */}
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-green-400 via-amber-400 to-orange-400 text-white text-3xl font-extrabold shadow-lg">HM</div>
@@ -121,25 +133,11 @@ export default function DashboardPage() {
 
           <div className="flex items-center gap-2">
             {isAdmin && (
-              <button
-                type="button"
-                onClick={() => router.push("/admin")}
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-red-500/80 text-white shadow-lg"
-                title="Painel do Admin"
-              >
+              <button type="button" onClick={() => router.push("/admin")} className="flex h-11 w-11 items-center justify-center rounded-full bg-red-500/80 text-white shadow-lg" title="Painel do Admin">
                 <Users size={20} />
               </button>
             )}
-            <button className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10"><Wallet size={20} /></button>
-            <button className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10" onClick={() => router.push("/chat-global")}><Headset size={20} /></button>
-            <button className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-3 text-sm"><Globe size={18}/>English</button>
           </div>
-        </div>
-
-        {/* Faixa info */}
-        <div className="mb-5 flex items-center gap-3 rounded-full bg-white/10 px-4 py-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10"><Bell size={20} /></div>
-          <p className="line-clamp-1 text-lg font-medium">NG’s latest mining project is recruiting</p>
         </div>
 
         {/* Cartão de saldo */}
@@ -166,13 +164,13 @@ export default function DashboardPage() {
         <div className="grid grid-cols-3 gap-4 mb-5">
           <MenuCard label="Recharge" icon={<Wallet size={28} />} onClick={() => router.push("/deposito")} />
           <MenuCard label="Withdraw" icon={<Download size={28} />} onClick={() => router.push("/levantamento")} />
-          <MenuCard label="App" icon={<Download size={28} />} onClick={() => router.push("/app")} />
+          <MenuCard label="App" icon={<Download size={28} />} onClick={downloadApp} /> {/* <-- botão App chama downloadApp */}
           <MenuCard label="Company Profile" icon={<Building2 size={28} />} onClick={() => router.push("/company-profile")} />
           <MenuCard label="Invite Friends" icon={<Users size={28} />} onClick={() => router.push("/invite")} />
           <MenuCard label="Agency Cooperation" icon={<Handshake size={28} />} onClick={() => router.push("/agency")} />
         </div>
 
-        {/* Slider/Carousel movido para antes da localização */}
+        {/* Slider */}
         <div className="relative mb-5 overflow-hidden rounded-[28px]">
           <div className="relative h-72 w-full">
             {dashboardSlides.map((slide, index) => (
@@ -200,6 +198,7 @@ export default function DashboardPage() {
         <div className="mt-5">
           <button type="button" onClick={() => setShowLogoutConfirm(true)} className="w-full rounded-2xl bg-red-500/80 py-4 text-sm font-bold">Terminar sessão</button>
         </div>
+
       </div>
 
       {/* Modal logout */}

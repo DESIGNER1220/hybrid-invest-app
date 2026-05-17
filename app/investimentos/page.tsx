@@ -102,10 +102,7 @@ export default function InvestimentosPage() {
     const userProfile = await getUserProfile(userId);
     setProfile((userProfile || null) as UserProfile | null);
   }
- if (loading) {
-    return <Loader message="Carregando investimentos..." />;
-  }
-
+ 
   
   useEffect(() => {
     const expireAt = getNormalPlansExpireAt();
