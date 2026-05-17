@@ -15,6 +15,7 @@ type UserProfile = {
   availableProfit?: number;
   bonus?: number;
   role?: string;
+  referralCode?: string;
 };
 
 function formatMoney(value: number) {
@@ -33,14 +34,12 @@ function MenuCard({ label, icon, onClick }: MenuCardProps) {
     <button
       type="button"
       onClick={onClick}
-      className="group rounded-[26px] bg-white/5 p-3 shadow-[0_10px_30px_rgba(0,0,0,0.25)] transition hover:scale-[1.02] active:scale-[0.98]"
+      className="group rounded-[26px] bg-white/5 p-3 shadow-[0_10px_30px_rgba(0,0,0,0.25)] transition hover:scale-[1.02] active:scale-[0.98] flex flex-col items-center justify-center"
     >
-      <div className="flex flex-col items-center justify-center gap-3">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-300 via-emerald-300 to-cyan-300 text-white shadow-lg">
-          {icon}
-        </div>
-        <span className="text-center text-sm font-medium leading-5 text-white">{label}</span>
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-300 via-emerald-300 to-cyan-300 text-white shadow-lg">
+        {icon}
       </div>
+      <span className="text-center text-sm font-medium leading-5 text-white mt-2">{label}</span>
     </button>
   );
 }
@@ -52,6 +51,11 @@ export default function DashboardPage() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [showWelcome, setShowWelcome] = useState(true);
+
+  // Modal Invite Friends
+  const [showReferralModal, setShowReferralModal] = useState(false);
+  const [referralCode, setReferralCode] = useState("");
+  const siteLink = "https://hybridmining.com"; // Link fixo do site
 
   const companyLocation = "Montepuez, Cabo Delgado — Moçambique";
 
@@ -65,9 +69,33 @@ export default function DashboardPage() {
     router.push("/login");
   }
 
-  // Função de download do app (mantendo como no dashboard antigo)
+  // Download automático do APK
   function downloadApp() {
-    window.open("https://link-do-seu-app.com/download", "_blank");
+    const apkPath = "/files/hybridmining.apk"; // colocar o APK na pasta public/files/
+    const link = document.createElement("a");
+    link.href = apkPath;
+    link.download = "HybridMining.apk";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  // Modal Invite Friends
+  function handleInviteFriends() {
+    if (userData?.referralCode) {
+      setReferralCode(userData.referralCode);
+      setShowReferralModal(true);
+    } else {
+      alert("Código de convite não disponível.");
+    }
+  }
+
+  // Copiar link do invite friends
+  function copyReferralLink() {
+    const fullLink = `${siteLink}?ref=${referralCode}`;
+    navigator.clipboard.writeText(fullLink).then(() => {
+      alert("Link copiado para a área de transferência!");
+    });
   }
 
   useEffect(() => {
@@ -78,7 +106,6 @@ export default function DashboardPage() {
     return () => unsub();
   }, [router]);
 
-  // Mensagem inicial desaparece após 8 segundos
   useEffect(() => {
     if (showWelcome) {
       const timer = setTimeout(() => setShowWelcome(false), 8000);
@@ -86,7 +113,6 @@ export default function DashboardPage() {
     }
   }, [showWelcome]);
 
-  // Slider automático
   useEffect(() => {
     const timer = setInterval(() => setCurrentSlide((prev) => (prev + 1) % dashboardSlides.length), 3500);
     return () => clearInterval(timer);
@@ -104,7 +130,7 @@ export default function DashboardPage() {
   return (
     <main className="relative min-h-screen pb-24 text-white bg-gradient-to-br from-[#0f1e3c] via-[#071224] to-[#0f243f] overflow-hidden">
 
-      {/* Fundo tech/raios CSS */}
+      {/* Fundo tech */}
       <div className="absolute inset-0 -z-10">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(0,255,255,0.05)_0%,_transparent_70%)] animate-pulse" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_rgba(255,128,0,0.03)_0%,_transparent_70%)] animate-pulse delay-200" />
@@ -121,7 +147,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Topo */}
+        {/* Topo HM */}
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-green-400 via-amber-400 to-orange-400 text-white text-3xl font-extrabold shadow-lg">HM</div>
@@ -140,33 +166,29 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Cartão de saldo */}
-        <div className="mb-5 rounded-[26px] bg-white/10 p-4 shadow-lg">
-          <p className="text-sm text-white/70">Saldo Total</p>
-          <h2 className="mt-1 text-3xl font-extrabold text-white">{formatMoney(total)} MZN</h2>
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            <div className="rounded-2xl bg-black/10 p-3">
-              <p className="text-[11px] text-white/70">Lucro</p>
-              <p className="mt-1 text-sm font-bold text-cyan-300">{formatMoney(availableProfit)} MZN</p>
-            </div>
-            <div className="rounded-2xl bg-black/10 p-3">
-              <p className="text-[11px] text-white/70">Bónus</p>
-              <p className="mt-1 text-sm font-bold text-emerald-300">{formatMoney(bonus)} MZN</p>
-            </div>
-            <div className="rounded-2xl bg-black/10 p-3">
-              <p className="text-[11px] text-white/70">Bruto</p>
-              <p className="mt-1 text-sm font-bold text-amber-300">{formatMoney(totalProfit)} MZN</p>
-            </div>
+        {/* Cards de saldo */}
+        <div className="mb-5 rounded-[26px] bg-white/10 p-4 shadow-lg grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="rounded-2xl bg-black/10 p-3">
+            <p className="text-[11px] text-white/70">Lucro</p>
+            <p className="mt-1 text-sm font-bold text-cyan-300">{formatMoney(availableProfit)} MZN</p>
+          </div>
+          <div className="rounded-2xl bg-black/10 p-3">
+            <p className="text-[11px] text-white/70">Bónus</p>
+            <p className="mt-1 text-sm font-bold text-emerald-300">{formatMoney(bonus)} MZN</p>
+          </div>
+          <div className="rounded-2xl bg-black/10 p-3">
+            <p className="text-[11px] text-white/70">Bruto</p>
+            <p className="mt-1 text-sm font-bold text-amber-300">{formatMoney(totalProfit)} MZN</p>
           </div>
         </div>
 
-        {/* Grid de atalhos */}
-        <div className="grid grid-cols-3 gap-4 mb-5">
+        {/* Grid de atalhos responsivo */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-5">
           <MenuCard label="Recharge" icon={<Wallet size={28} />} onClick={() => router.push("/deposito")} />
           <MenuCard label="Withdraw" icon={<Download size={28} />} onClick={() => router.push("/levantamento")} />
-          <MenuCard label="App" icon={<Download size={28} />} onClick={downloadApp} /> {/* <-- botão App chama downloadApp */}
+          <MenuCard label="App" icon={<Download size={28} />} onClick={downloadApp} />
           <MenuCard label="Company Profile" icon={<Building2 size={28} />} onClick={() => router.push("/company-profile")} />
-          <MenuCard label="Invite Friends" icon={<Users size={28} />} onClick={() => router.push("/invite")} />
+          <MenuCard label="Invite Friends" icon={<Users size={28} />} onClick={handleInviteFriends} />
           <MenuCard label="Agency Cooperation" icon={<Handshake size={28} />} onClick={() => router.push("/agency")} />
         </div>
 
@@ -200,6 +222,29 @@ export default function DashboardPage() {
         </div>
 
       </div>
+
+      {/* Modal Invite Friends */}
+      {showReferralModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white/5 p-6 shadow-xl backdrop-blur animate-fade-in border border-white/20">
+            <h2 className="text-center text-lg font-bold text-white mb-4">Compartilhe seu código de convite</h2>
+            <p className="text-center text-white mb-2 font-mono text-lg">Código: {referralCode}</p>
+            <p className="text-center text-white mb-4 text-sm">Link: {siteLink}?ref={referralCode}</p>
+            <button
+              onClick={copyReferralLink}
+              className="mb-2 w-full rounded-xl bg-amber-400 py-2 text-sm font-bold text-black hover:bg-amber-300 transition"
+            >
+              Copiar link
+            </button>
+            <button
+              onClick={() => setShowReferralModal(false)}
+              className="mt-2 w-full rounded-xl border border-amber-400 py-2 text-sm text-amber-400 hover:bg-white/10 transition"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal logout */}
       {showLogoutConfirm && (
