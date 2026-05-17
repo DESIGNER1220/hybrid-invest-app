@@ -9,9 +9,9 @@ export default function BackButton() {
   return (
     <button
       onClick={() => router.back()}
-      className="flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/20"
+      className="flex items-center gap-2 rounded-lg bg-yellow-500/10 px-3 py-2 text-xs font-bold text-green-300 transition hover:bg-white/20"
     >
-      <ArrowLeft size={16} />
+      <ArrowLeft size={12} />
       Voltar
     </button>
   );

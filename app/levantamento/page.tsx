@@ -15,6 +15,7 @@ import {
 import { auth } from "../lib/firebase";
 import { createTransaction, getUserProfile } from "../services/authService";
 import BottomNav from "../components/BottomNav";
+import Loader from "../components/Loader";
 
 type UserProfile = {
   balance?: number;
@@ -25,6 +26,7 @@ type UserProfile = {
   withdrawalFeePercent?: number;
   blocked?: boolean;
 };
+
 
 const MIN_WITHDRAWAL_AMOUNT = 200;
 const WITHDRAWAL_START_HOUR = 10;
@@ -162,7 +164,9 @@ export default function LevantamentoPage() {
     }
 
     if (userBlocked) {
-      setErrorMsg("A sua conta está bloqueada. Não é permitido fazer levantamento.");
+      setErrorMsg(
+        "A sua conta está bloqueada. Não é permitido fazer levantamento."
+      );
       return;
     }
 
@@ -217,11 +221,7 @@ export default function LevantamentoPage() {
   }
 
   if (loading) {
-    return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black p-4 text-white">
-        Carregando...
-      </main>
-    );
+    return <Loader />;
   }
 
   return (
@@ -294,10 +294,11 @@ export default function LevantamentoPage() {
               >
                 Regras de levantamento
               </h2>
+
               <p className="mt-1 text-xs text-slate-300">
-                Valor mínimo:{" "}
-                <strong>{MIN_WITHDRAWAL_AMOUNT} MZN</strong>
+                Valor mínimo: <strong>{MIN_WITHDRAWAL_AMOUNT} MZN</strong>
               </p>
+
               <p className="text-xs text-slate-300">
                 Horário:{" "}
                 <strong>segunda a sexta, das 10h às 22h</strong>
@@ -305,13 +306,15 @@ export default function LevantamentoPage() {
 
               {!withdrawalAllowedNow && (
                 <p className="mt-2 text-xs font-semibold text-red-300">
-                  Neste momento os levantamentos estão fora do horário permitido.
+                  Neste momento os levantamentos estão fora do horário
+                  permitido.
                 </p>
               )}
 
               {userBlocked && (
                 <p className="mt-2 text-xs font-semibold text-red-300">
-                  A sua conta está bloqueada. Não é permitido fazer levantamento.
+                  A sua conta está bloqueada. Não é permitido fazer
+                  levantamento.
                 </p>
               )}
             </div>
@@ -329,18 +332,22 @@ export default function LevantamentoPage() {
               <span>VIP1</span>
               <span>0 a 2 convidados • 12%</span>
             </div>
+
             <div className="flex justify-between rounded-lg bg-black/20 px-3 py-2">
               <span>VIP2</span>
               <span>3 convidados • 10%</span>
             </div>
+
             <div className="flex justify-between rounded-lg bg-black/20 px-3 py-2">
               <span>VIP3</span>
               <span>5 convidados • 6%</span>
             </div>
+
             <div className="flex justify-between rounded-lg bg-black/20 px-3 py-2">
               <span>VIP4</span>
               <span>8 convidados • 4%</span>
             </div>
+
             <div className="flex justify-between rounded-lg bg-black/20 px-3 py-2">
               <span>VIP5</span>
               <span>10+ convidados • 0%</span>

@@ -1,9 +1,12 @@
+
 "use client";
 
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { loginUserByPhone } from "../services/authService";
+import { loginUserByPhone, resetPasswordByEmail } from "../services/authService";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { db } from "../lib/firebase";
 import Loader from "../components/Loader";
 
 export default function LoginPage() {
@@ -31,6 +34,42 @@ export default function LoginPage() {
       setTimeout(() => router.push("/dashboard"), 5000);
     } catch (error: any) {
       setErrorMsg(error?.message || "Erro ao iniciar sessão.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    try {
+      if (!phone.trim()) {
+        setErrorMsg("Informe o número de telefone cadastrado para recuperar a senha.");
+        return;
+      }
+
+      setLoading(true);
+      setErrorMsg("");
+      setSuccess("");
+
+      const phoneNormalized = phone.replace(/\D/g, "");
+      const q = query(collection(db, "users"), where("phoneNormalized", "==", phoneNormalized));
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        throw new Error("Usuário não encontrado para este telefone.");
+      }
+
+      const userData: any = snapshot.docs[0].data();
+      const email = userData.email;
+      if (!email) {
+        throw new Error("Email não encontrado para este usuário.");
+      }
+
+      await resetPasswordByEmail(email);
+
+      setSuccess("Um link de recuperação foi enviado para o seu email.");
+      setShowNotice(true);
+    } catch (error: any) {
+      setErrorMsg(error?.message || "Erro ao tentar recuperar a senha.");
     } finally {
       setLoading(false);
     }
@@ -90,6 +129,16 @@ export default function LoginPage() {
             className="w-full rounded-xl bg-white px-4 py-3 text-black outline-none"
             required
           />
+
+          {/* Botão de esqueci a senha */}
+          <button
+            type="button"
+            onClick={handleForgotPassword}
+            className="w-full text-center text-sm font-bold text-amber-400 hover:underline"
+          >
+            Esqueci a senha
+          </button>
+
           <button
             type="submit"
             disabled={loading}

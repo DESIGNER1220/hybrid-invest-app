@@ -317,7 +317,7 @@ export default function PerfilPage() {
           className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-500 px-4 py-4 font-bold text-white shadow-lg transition hover:bg-red-400 disabled:opacity-60"
         >
           <LogOut size={18} />
-          {loggingOut ? "Saindo..." : "Terminar sessão"}
+          {loggingOut ? "fora" : "Terminar"}
         </button>
       </div>
 

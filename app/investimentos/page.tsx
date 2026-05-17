@@ -11,6 +11,7 @@ import {
   getUserProfile,
 } from "../services/authService";
 import BottomNav from "../components/BottomNav";
+import Loader from "../components/Loader";
 
 type UserProfile = {
   balance?: number;
@@ -96,11 +97,16 @@ export default function InvestimentosPage() {
   );
   const [now, setNow] = useState(Date.now());
 
+ 
   async function loadProfile(userId: string) {
     const userProfile = await getUserProfile(userId);
     setProfile((userProfile || null) as UserProfile | null);
   }
+ if (loading) {
+    return <Loader message="Carregando investimentos..." />;
+  }
 
+  
   useEffect(() => {
     const expireAt = getNormalPlansExpireAt();
     setNormalPlansExpireAt(expireAt);
@@ -109,6 +115,8 @@ export default function InvestimentosPage() {
     const interval = window.setInterval(() => {
       setNow(Date.now());
     }, 1000);
+
+
 
     return () => window.clearInterval(interval);
   }, []);
@@ -132,6 +140,59 @@ export default function InvestimentosPage() {
         setLoading(false);
       }
     });
+
+     const backlogPlans = [
+    {
+      id: "back-300",
+      name: "BACK 300",
+      amount: 300,
+      dailyRate: 25,
+      durationDays: 26,
+      finalReturn: 650,
+      isPremium: false,
+      isBacklog: true,
+    },
+    {
+      id: "back-5",
+      name: "BACK5",
+      amount: 500,
+      dailyRate: 67,
+      durationDays: 10,
+      finalReturn: 670,
+      isPremium: false,
+      isBacklog: true,
+    },
+    {
+      id: "back-10",
+      name: "BACK10",
+      amount: 1000,
+      dailyRate: 150,
+      durationDays: 10,
+      finalReturn: 1500,
+      isPremium: false,
+      isBacklog: true,
+    },
+    {
+      id: "back-50",
+      name: "BACK50",
+      amount: 5000,
+      dailyRate: 850,
+      durationDays: 10,
+      finalReturn: 8500,
+      isPremium: false,
+      isBacklog: true,
+    },
+    {
+      id: "back-100",
+      name: "BACK100",
+      amount: 10000,
+      dailyRate: 1700,
+      durationDays: 10,
+      finalReturn: 17000,
+      isPremium: false,
+      isBacklog: true,
+    },
+  ];
 
     return () => unsubscribe();
   }, [router]);
@@ -537,7 +598,7 @@ export default function InvestimentosPage() {
         <div
           className={`fixed bottom-20 left-1/2 z-40 w-[92%] max-w-md -translate-x-1/2 rounded-xl px-4 py-3 text-center shadow-lg backdrop-blur-sm ${
             footerType === "success"
-              ? "border border-emerald-300/30 bg-emerald-500/15"
+              ? "border border-emerald-500/30 bg-emerald-500/15"
               : "border border-red-500/30 bg-red-500/10"
           }`}
         >
@@ -550,6 +611,8 @@ export default function InvestimentosPage() {
           </p>
         </div>
       )}
+
+
 
       <BottomNav />
     </main>

@@ -1,14 +1,25 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { LogOut, MapPin } from "lucide-react";
+import {
+  LogOut,
+  Globe,
+  Wallet,
+  Download,
+  Building2,
+  Users,
+  Handshake,
+  MapPin,
+  Bell,
+  Headset,
+} from "lucide-react";
+
 import { auth } from "../lib/firebase";
 import { getUserProfile, logoutUser } from "../services/authService";
 import BottomNav from "../components/BottomNav";
-import DownloadAppButton from "../components/DownloadAppButton";
+import Loader from "../components/Loader";
 
 type UserProfile = {
   balance?: number;
@@ -18,37 +29,41 @@ type UserProfile = {
   role?: string;
 };
 
+function formatMoney(value: number) {
+  return Number(value || 0).toLocaleString("pt-MZ");
+}
+
 const dashboardSlides = [
   { src: "/dashboard/server.jpg", alt: "Infraestrutura" },
   { src: "/dashboard/finance.jpg", alt: "Investimento" },
 ];
 
-function formatMoney(value: number) {
-  return Number(value || 0).toLocaleString("pt-MZ");
+type MenuCardProps = { label: string; icon: React.ReactNode; onClick: () => void };
+
+function MenuCard({ label, icon, onClick }: MenuCardProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group rounded-[18px] bg-white/5 p-3 shadow-[0_06px_10px_rgba(0,0,0,0.25)] transition hover:scale-[1.02] active:scale-[0.98]"
+    >
+      <div className="flex flex-col items-center justify-center gap-3">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-300 via-emerald-300 to-cyan-300 text-white shadow-lg">
+          {icon}
+        </div>
+        <span className="text-center text-sm font-medium leading-5 text-white">{label}</span>
+      </div>
+    </button>
+  );
 }
 
 export default function DashboardPage() {
   const router = useRouter();
-
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [bannerPaused, setBannerPaused] = useState(false);
-  const [showPauseNotice, setShowPauseNotice] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [showPromo, setShowPromo] = useState(false);
-  const [timeLeft, setTimeLeft] = useState({
-    days: 0,
-    hours: 0,
-    minutes: 0,
-    seconds: 0,
-  });
-
   const companyLocation = "Montepuez, Cabo Delgado — Moçambique";
-
-  const launchDate = new Date();
-  launchDate.setDate(launchDate.getDate() + ((8 - launchDate.getDay()) % 7));
-  launchDate.setHours(0, 0, 0, 0);
 
   async function load(uid: string) {
     const profile = await getUserProfile(uid);
@@ -60,56 +75,16 @@ export default function DashboardPage() {
     router.push("/login");
   }
 
-  function handleBannerTap() {
-    setBannerPaused(true);
-    setShowPauseNotice(true);
-    setTimeout(() => {
-      setShowPauseNotice(false);
-      setBannerPaused(false);
-    }, 5000);
-  }
-
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-      try {
-        await load(user.uid);
-        setShowPromo(true);
-        setTimeout(() => setShowPromo(false), 5000);
-      } finally {
-        setLoading(false);
-      }
+      if (!user) router.push("/login");
+      else await load(user.uid).finally(() => setLoading(false));
     });
     return () => unsub();
   }, [router]);
 
-  // Contagem regressiva
   useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      const diff = launchDate.getTime() - now.getTime();
-      if (diff <= 0) {
-        clearInterval(interval);
-        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-      } else {
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-        const minutes = Math.floor((diff / (1000 * 60)) % 60);
-        const seconds = Math.floor((diff / 1000) % 60);
-        setTimeLeft({ days, hours, minutes, seconds });
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Slider automático
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % dashboardSlides.length);
-    }, 3500);
+    const timer = setInterval(() => setCurrentSlide((prev) => (prev + 1) % dashboardSlides.length), 3500);
     return () => clearInterval(timer);
   }, []);
 
@@ -120,172 +95,127 @@ export default function DashboardPage() {
   const isAdmin = userData?.role === "admin";
   const total = balance + availableProfit + bonus;
 
-  // Spinner elegante inicial
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-black">
-        <div className="w-16 h-16 rounded-full animate-spin relative shadow-[0_0_20px_#3b82f6,0_0_20px_#10b981,0_0_20px_#f87171]">
-          <div className="absolute inset-0 rounded-full border-4 border-t-transparent border-l-transparent border-blue-400 border-r-green-400 border-b-red-400"></div>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <Loader message="Carregando dados..." />;
 
-  // Propaganda após login
-  if (showPromo) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-blue-400 via-green-300 to-red-300 text-white">
-        <h2 className="text-2xl sm:text-3xl font-bold mb-6 uppercase text-center">
-          Novos Planos de Investimento!
-        </h2>
-
-        <div className="overflow-hidden w-full sm:max-w-lg rounded-xl p-4 shadow-lg bg-gradient-to-r from-blue-300 via-green-200 to-red-200">
-          <div className="whitespace-nowrap animate-marquee text-white font-bold text-base sm:text-lg mb-4 text-center">
-            🚀 Prepare-se! Novos planos chegando nesta segunda-feira! Aproveite para investir e multiplicar seus lucros! 💰
-          </div>
-
-          <div className="text-white font-bold text-lg sm:text-xl text-center">
-            Lançamento em: {timeLeft.days}d {timeLeft.hours}h {timeLeft.minutes}m{" "}
-            {timeLeft.seconds}s
-          </div>
-        </div>
-
-        <button
-          className="mt-14 flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white text-blue-600 shadow-lg hover:bg-gray-100 transition"
-          onClick={() => setShowPromo(false)}
-          aria-label="Continuar"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-            className="w-6 h-6 sm:w-7 sm:h-7"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-          </svg>
-        </button>
-      </div>
-    );
-  }
-
-  // Dashboard completo
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black px-3 pt-5 pb-24 text-white">
-      <div className="fixed left-4 top-4 z-50">
-        <DownloadAppButton className="shadow-lg" />
+    <main className="relative min-h-screen pb-24 text-white
+      bg-gradient-to-br from-[#0f1e3c] via-[#071224] to-[#0f243f] overflow-hidden">
+
+      {/* Fundo tech/raios em CSS */}
+      <div className="absolute inset-0 -z-10">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(0,255,255,0.05)_0%,_transparent_70%)] animate-pulse" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_rgba(255,128,0,0.03)_0%,_transparent_70%)] animate-pulse delay-200" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_rgba(0,255,128,0.03)_0%,_transparent_70%)] animate-pulse delay-400" />
       </div>
 
-      <button
-        type="button"
-        onClick={() => setShowLogoutConfirm(true)}
-        className="fixed top-4 right-4 z-50 rounded-full bg-red-500/20 p-2 text-red-400 shadow"
-      >
-        <LogOut size={18} />
-      </button>
+      {/* Topo */}
+      <div className="mx-auto max-w-md px-4 pt-4">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-green-400 via-amber-400 to-orange-400 text-white text-3xl font-extrabold shadow-lg">HM</div>
+            <div>
+              <h1 className="text-2xl font-extrabold tracking-wide">HYBRID MINING</h1>
+              <p className="text-xs text-white/70">HYBRID MINING</p>
+            </div>
+          </div>
 
-      <div className="mx-auto max-w-sm space-y-3 pt-12">
-        {/* Banner */}
-        <div
-          onClick={handleBannerTap}
-          className="relative overflow-hidden rounded-xl border border-amber-500/20 bg-amber-500/10 py-1.5"
-        >
-          {showPauseNotice ? (
-            <div className="px-3 text-center text-[10px] font-bold text-amber-200">AVISO PARAR</div>
-          ) : (
-            <div
-              className={`whitespace-nowrap px-2 text-[10px] font-bold text-amber-300 ${
-                bannerPaused ? "animate-none" : "animate-marquee"
-              }`}
-            >
-              🚫 Não utilizamos grupos de WhatsApp nem Telegram — Para qualquer dúvida entre em contacto aqui na nossa plataforma no ícone verde abaixo no lado direito — Obrigado! 🚀
-            </div>
-          )}
-        </div>
-
-        {/* Saldo */}
-        <div className="flex w-full justify-start">
-          <div className="w-full text-left leading-tight">
-            <div className="mb-1">
-              <p className="text-[12px] font-medium uppercase tracking-wide text-slate-400">Saldo total</p>
-              <h2 className="text-[9px] font-bold text-emerald-400">{formatMoney(total)} MZN</h2>
-            </div>
-            <div className="mb-1">
-              <p className="text-[15px] font-medium uppercase tracking-wide text-slate-400">Lucro</p>
-              <h3 className="text-[7px] font-bold text-cyan-400">{formatMoney(availableProfit)} MZN</h3>
-            </div>
-            <div className="mb-1">
-              <p className="text-[7px] font-medium uppercase tracking-wide text-slate-400">Bónus</p>
-              <h3 className="text-[7px] font-bold text-blue-400">{formatMoney(bonus)} MZN</h3>
-            </div>
-            <div className="text-[7px] text-slate-500">Lucro bruto calculado: {formatMoney(totalProfit)} MZN</div>
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => router.push("/admin")}
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-red-500/80 text-white shadow-lg"
+                title="Painel do Admin"
+              >
+                <Users size={20} />
+              </button>
+            )}
+            <button className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10"><Wallet size={20} /></button>
+            <button className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10" onClick={() => router.push("/chat-global")}><Headset size={20} /></button>
+            <button className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-3 text-sm"><Globe size={18}/>English</button>
           </div>
         </div>
 
-        {/* Botões */}
-        <div className="grid grid-cols-3 gap-2">
-          <button type="button" onClick={() => router.push("/deposito")} className="rounded-xl bg-emerald-500 py-2 text-[11px] font-bold text-black">Depositar</button>
-          <button type="button" onClick={() => router.push("/levantamento")} className="rounded-xl bg-amber-500 py-2 text-[11px] font-bold text-black">Levantar</button>
-          <button type="button" onClick={() => router.push("/chat-global")} className="rounded-xl bg-cyan-500 py-2 text-[11px] font-bold text-black">Suporte</button>
+        {/* Faixa info */}
+        <div className="mb-5 flex items-center gap-3 rounded-full bg-white/10 px-4 py-4">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10"><Bell size={20} /></div>
+          <p className="line-clamp-1 text-lg font-medium">NG’s latest mining project is recruiting</p>
         </div>
 
-        {isAdmin && (
-          <div className="flex justify-center">
-            <button type="button" onClick={() => router.push("/admin")} className="rounded-xl bg-red-500 px-4 py-2 text-[11px] font-bold text-white shadow-lg hover:bg-red-400">Painel do Administrador</button>
+        {/* Cartão de saldo */}
+        <div className="mb-5 rounded-[26px] bg-white/10 p-4 shadow-lg">
+          <p className="text-sm text-white/70">Saldo Total</p>
+          <h2 className="mt-1 text-3xl font-extrabold text-white">{formatMoney(total)} MZN</h2>
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            <div className="rounded-2xl bg-black/10 p-3">
+              <p className="text-[11px] text-white/70">Lucro</p>
+              <p className="mt-1 text-sm font-bold text-cyan-300">{formatMoney(availableProfit)} MZN</p>
+            </div>
+            <div className="rounded-2xl bg-black/10 p-3">
+              <p className="text-[11px] text-white/70">Bónus</p>
+              <p className="mt-1 text-sm font-bold text-emerald-300">{formatMoney(bonus)} MZN</p>
+            </div>
+            <div className="rounded-2xl bg-black/10 p-3">
+              <p className="text-[11px] text-white/70">Bruto</p>
+              <p className="mt-1 text-sm font-bold text-amber-300">{formatMoney(totalProfit)} MZN</p>
+            </div>
           </div>
-        )}
+        </div>
 
-        {/* Carrossel */}
-        <div className="relative h-36 w-full overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-lg">
-          {dashboardSlides.map((slide, index) => (
-            <Image key={slide.src} src={slide.src} alt={slide.alt} fill sizes="(max-width: 768px) 100vw, 384px"
-              className={`object-cover transition-opacity duration-700 ${currentSlide === index ? "opacity-100" : "opacity-0"}`}
-              priority={index === 0} />
-          ))}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/5 to-transparent" />
+        {/* Grid de atalhos */}
+        <div className="grid grid-cols-3 gap-4 mb-5">
+          <MenuCard label="Recharge" icon={<Wallet size={28} />} onClick={() => router.push("/deposito")} />
+          <MenuCard label="Withdraw" icon={<Download size={28} />} onClick={() => router.push("/levantamento")} />
+          <MenuCard label="App" icon={<Download size={28} />} onClick={() => router.push("/app")} />
+          <MenuCard label="Company Profile" icon={<Building2 size={28} />} onClick={() => router.push("/company-profile")} />
+          <MenuCard label="Invite Friends" icon={<Users size={28} />} onClick={() => router.push("/invite")} />
+          <MenuCard label="Agency Cooperation" icon={<Handshake size={28} />} onClick={() => router.push("/agency")} />
+        </div>
+
+        {/* Slider/Carousel movido para antes da localização */}
+        <div className="relative mb-5 overflow-hidden rounded-[28px]">
+          <div className="relative h-72 w-full">
+            {dashboardSlides.map((slide, index) => (
+              <img key={index} src={slide.src} alt={slide.alt} className={`absolute inset-0 object-cover transition-opacity duration-700 ${currentSlide === index ? "opacity-100" : "opacity-0"}`} />
+            ))}
+          </div>
+          <div className="absolute inset-0 bg-black/30" />
           <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-2">
             {dashboardSlides.map((_, index) => (
-              <button key={index} type="button" onClick={() => setCurrentSlide(index)}
-                className={`h-2 rounded-full transition-all ${currentSlide === index ? "w-6 bg-amber-400" : "w-2 bg-white/60"}`}
-                aria-label={`Ver imagem ${index + 1}`}/>
+              <button key={index} onClick={() => setCurrentSlide(index)} className={`h-2 rounded-full transition-all ${currentSlide === index ? "w-8 bg-white" : "w-2 bg-white/50"}`} />
             ))}
           </div>
         </div>
 
         {/* Localização */}
-        <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3 shadow">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
-            <MapPin size={18} />
-          </div>
+        <div className="mt-5 flex items-center gap-3 rounded-[24px] bg-white/10 p-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10"><MapPin size={22} /></div>
           <div>
-            <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Nossa localização</p>
-            <p className="text-xs font-bold text-emerald-300">{companyLocation}</p>
+            <p className="text-xs uppercase tracking-wide text-white/60">Nossa localização</p>
+            <p className="text-sm font-semibold">{companyLocation}</p>
           </div>
+        </div>
+
+        {/* Logout */}
+        <div className="mt-5">
+          <button type="button" onClick={() => setShowLogoutConfirm(true)} className="w-full rounded-2xl bg-red-500/80 py-4 text-sm font-bold">Terminar sessão</button>
         </div>
       </div>
 
-      {/* Logout confirm */}
+      {/* Modal logout */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-          <div className="w-72 rounded-xl bg-slate-900 p-4 text-center">
-            <p className="mb-3 text-sm">Sair da conta?</p>
+          <div className="w-72 rounded-2xl bg-slate-900 p-4 text-center">
+            <p className="mb-4 text-sm">Sair da conta?</p>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setShowLogoutConfirm(false)} className="flex-1 rounded bg-gray-700 py-2 text-sm">Cancelar</button>
-              <button type="button" onClick={handleLogout} className="flex-1 rounded bg-red-500 py-2 text-sm">Sair</button>
+              <button type="button" onClick={() => setShowLogoutConfirm(false)} className="flex-1 rounded-xl bg-gray-700 py-2 text-sm">Cancelar</button>
+              <button type="button" onClick={handleLogout} className="flex-1 rounded-xl bg-red-500 py-2 text-sm">Sair</button>
             </div>
           </div>
         </div>
       )}
 
       <BottomNav />
-
-      <style jsx global>{`
-        @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
-        .animate-marquee { display: inline-block; min-width: 100%; animation: marquee 15s linear infinite; }
-        @media (max-width: 640px) { .animate-marquee { animation: marquee 20s linear infinite; font-size: 1rem; } }
-        .animate-none { animation: none !important; }
-      `}</style>
     </main>
   );
 }

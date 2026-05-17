@@ -1,8 +1,10 @@
 import { auth, db } from "../lib/firebase";
+
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import {
   addDoc,
@@ -23,6 +25,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 
+
 export type TransactionType = "deposito" | "levantamento";
 export type PaymentMethod = "M-Pesa" | "E-mola";
 
@@ -37,6 +40,7 @@ export type InvestmentPlan = {
   durationDays: number;
   finalReturn?: number;
   isPremium?: boolean;
+  isBacklog?: boolean;
 };
 
 export type SupportMessage = {
@@ -210,13 +214,64 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
     durationDays: 60,
     finalReturn: 305000,
   },
+ // ===== NOVOS INVESTIMENTOS BACKLOG =====
+  {
+    id: "back-300",
+    name: "BACK 300",
+    amount: 300,
+    dailyRate: 25,
+    durationDays: 26,
+    finalReturn: 650, // 25 * 26
+    isPremium: false,
+    isBacklog: true, // flag para identificar backlog
+  },
+  {
+    id: "back-5",
+    name: "BACK5",
+    amount: 500,
+    dailyRate: 67,
+    durationDays: 10, // ajustar conforme ciclo real
+    finalReturn: 670, // 67 * 10
+    isPremium: false,
+    isBacklog: true,
+  },
+  {
+    id: "back-10",
+    name: "BACK10",
+    amount: 1000,
+    dailyRate: 150,
+    durationDays: 10,
+    finalReturn: 1500,
+    isPremium: false,
+    isBacklog: true,
+  },
+  {
+    id: "back-50",
+    name: "BACK50",
+    amount: 5000,
+    dailyRate: 850,
+    durationDays: 10,
+    finalReturn: 8500,
+    isPremium: false,
+    isBacklog: true,
+  },
+  {
+    id: "back-100",
+    name: "BACK100",
+    amount: 10000,
+    dailyRate: 1700,
+    durationDays: 10,
+    finalReturn: 17000,
+    isPremium: true,
+    isBacklog: true,
+  },
 ];
 
 const ADMIN_PHONE = "869933273";
 const MIN_WITHDRAWAL_AMOUNT = 200;
 const WITHDRAWAL_START_HOUR = 10;
 const WITHDRAWAL_END_HOUR = 22;
-const DAILY_SPIN_HARD_LIMIT = 20;
+const DAILY_SPIN_HARD_LIMIT = 1;
 const SPIN_COOLDOWN_MS = 10_000;
 
 function normalizePhone(phone: string) {
@@ -855,6 +910,19 @@ export async function createTransaction(params: {
       throw new Error(
         "A sua conta está bloqueada. Não é permitido fazer levantamento."
       );
+
+      const lastWithdrawalTimestamp = Number(userData.lastWithdrawalTimestamp ?? 0);
+    if (lastWithdrawalTimestamp > 0) {
+      const today = new Date();
+      const lastDate = new Date(lastWithdrawalTimestamp);
+      const isSameDay = lastDate.getFullYear() === today.getFullYear() && lastDate.getMonth() === today.getMonth() && lastDate.getDate() === today.getDate();
+      if (isSameDay) throw new Error("Só é permitido fazer 1 levantamento por dia.");
+    }
+
+    const vipLevel = String(userData.vipLevel || "VIP1").toUpperCase();
+    const vipLevelsAllowedAboveMinimum = ["VIP2", "VIP3", "VIP4", "VIP5"];
+    const isVip2OrHigher = vipLevelsAllowedAboveMinimum.includes(vipLevel);
+    if (!isVip2OrHigher && cleanAmount > 200) throw new Error("Apenas utilizadores VIP2 ou superior podem levantar acima de 200 MZN.");
     }
 
     const reservation = calculateWithdrawalReservation(userData, cleanAmount);
@@ -1924,3 +1992,18 @@ export async function adjustUserFinancials(params: {
   };
 }
 
+
+
+export async function resetPasswordByEmail(email: string) {
+  if (!email?.trim()) {
+    throw new Error("Informe o email da conta.");
+  }
+
+  await sendPasswordResetEmail(auth, email.trim());
+
+  return {
+    success: true,
+    message:
+      "Foi enviado um link de recuperação de senha para o seu email.",
+  };
+}
