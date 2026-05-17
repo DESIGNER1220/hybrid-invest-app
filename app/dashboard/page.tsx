@@ -7,7 +7,7 @@ import { auth } from "../lib/firebase";
 import { getUserProfile, logoutUser } from "../services/authService";
 import BottomNav from "../components/BottomNav";
 import Loader from "../components/Loader";
-import { Wallet, Download, Users, Handshake, MapPin, Building2 } from "lucide-react";
+import { Wallet, Download, Users, Handshake, MapPin, Building2, LogOut } from "lucide-react";
 
 type UserProfile = {
   balance?: number;
@@ -22,11 +22,6 @@ function formatMoney(value: number) {
   return Number(value || 0).toLocaleString("pt-MZ");
 }
 
-const dashboardSlides = [
-  { src: "/dashboard/server.jpg", alt: "Infraestrutura" },
-  { src: "/dashboard/finance.jpg", alt: "Investimento" },
-];
-
 type MenuCardProps = { label: string; icon: React.ReactNode; onClick: () => void; size?: string };
 
 function MenuCard({ label, icon, onClick, size }: MenuCardProps) {
@@ -34,7 +29,7 @@ function MenuCard({ label, icon, onClick, size }: MenuCardProps) {
     <button
       type="button"
       onClick={onClick}
-      className={`group rounded-[26px] bg-white/5 p-3 shadow-[0_10px_30px_rgba(0,0,0,0.25)] transition hover:scale-[1.02] active:scale-[0.98] flex flex-col items-center justify-center`}
+      className="group rounded-[26px] bg-white/5 p-3 shadow-[0_10px_30px_rgba(0,0,0,0.25)] transition hover:scale-[1.02] active:scale-[0.98] flex flex-col items-center justify-center"
     >
       <div className={`flex ${size || "h-16 w-16"} items-center justify-center rounded-2xl bg-gradient-to-br from-teal-300 via-emerald-300 to-cyan-300 text-white shadow-lg`}>
         {icon}
@@ -49,7 +44,6 @@ export default function DashboardPage() {
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [currentSlide, setCurrentSlide] = useState(0);
   const [showWelcome, setShowWelcome] = useState(true);
 
   // Modais
@@ -70,7 +64,6 @@ export default function DashboardPage() {
     router.push("/login");
   }
 
-  // Download automático do APK
   function downloadApp() {
     const apkPath = "/files/hybridmining.apk";
     const link = document.createElement("a");
@@ -116,11 +109,6 @@ export default function DashboardPage() {
     }
   }, [showWelcome]);
 
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentSlide((prev) => (prev + 1) % dashboardSlides.length), 3500);
-    return () => clearInterval(timer);
-  }, []);
-
   const balance = Number(userData?.balance ?? 0);
   const totalProfit = Number(userData?.totalProfit ?? 0);
   const availableProfit = Number(userData?.availableProfit ?? 0);
@@ -142,6 +130,7 @@ export default function DashboardPage() {
 
       <div className="mx-auto max-w-md px-4 pt-4">
 
+        {/* Mensagem de boas-vindas */}
         {showWelcome && (
           <div className="mb-5 rounded-2xl bg-white/10 p-4 shadow-lg border border-white/20 animate-fade-in">
             <p className="text-sm font-bold text-amber-200 mb-2">Por favor clique no Suporte em caso de dificuldades.</p>
@@ -165,6 +154,10 @@ export default function DashboardPage() {
                 <Users size={20} />
               </button>
             )}
+            {/* Ícone de logout circular */}
+            <button type="button" onClick={() => setShowLogoutConfirm(true)} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white shadow-lg">
+              <LogOut size={20} />
+            </button>
           </div>
         </div>
 
@@ -194,7 +187,14 @@ export default function DashboardPage() {
           <MenuCard label="Agency Cooperation" icon={<Handshake size={28} />} onClick={handleCompanyInfo} size="h-14 w-14 xs:h-12 xs:w-12"/>
         </div>
 
-        {/* Slider, localização, logout e modais seguem igual, mantendo layout fixo */}
+        {/* Localização */}
+        <div className="mt-5 flex items-center gap-3 rounded-[24px] bg-white/10 p-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10"><MapPin size={22} /></div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-white/60">Nossa localização</p>
+            <p className="text-sm font-semibold">{companyLocation}</p>
+          </div>
+        </div>
 
       </div>
 
@@ -202,10 +202,59 @@ export default function DashboardPage() {
 
       {/* Modais */}
       {/* Invite Friends */}
-      {/* Company */}
-      {/* Logout */}
-      {/* mesmos modais que enviamos antes */}
-      
+      {showReferralModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white/5 p-6 shadow-xl backdrop-blur animate-fade-in border border-white/20">
+            <h2 className="text-center text-lg font-bold text-white mb-4">Compartilhe seu código de convite</h2>
+            <p className="text-center text-white mb-2 font-mono text-lg">Código: {referralCode}</p>
+            <p className="text-center text-white mb-4 text-sm">Link: {siteLink}?ref={referralCode}</p>
+            <button
+              onClick={copyReferralLink}
+              className="mb-2 w-full rounded-xl bg-amber-400 py-2 text-sm font-bold text-black hover:bg-amber-300 transition"
+            >
+              Copiar link
+            </button>
+            <button
+              onClick={() => setShowReferralModal(false)}
+              className="mt-2 w-full rounded-xl border border-amber-400 py-2 text-sm text-amber-400 hover:bg-white/10 transition"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Company */}
+      {showCompanyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white/5 p-6 shadow-xl backdrop-blur animate-fade-in border border-white/20">
+            <h2 className="text-center text-lg font-bold text-white mb-4">Sobre a Empresa</h2>
+            <p className="text-center text-white text-sm">
+              A empresa moçambicana que veio para ajudar os moçambicanos sobre vida financeira, teve o seu início no dia 02 de Abril de 2026 com um contrato assinado com a administração financeira moçambicana de 5 anos de trabalho, beneficiando os moçambicanos.
+            </p>
+            <button
+              onClick={() => setShowCompanyModal(false)}
+              className="mt-4 w-full rounded-xl border border-amber-400 py-2 text-sm text-amber-400 hover:bg-white/10 transition"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal logout */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="w-72 rounded-2xl bg-slate-900 p-4 text-center">
+            <p className="mb-4 text-sm">Sair da conta?</p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setShowLogoutConfirm(false)} className="flex-1 rounded-xl bg-gray-700 py-2 text-sm">Cancelar</button>
+              <button type="button" onClick={handleLogout} className="flex-1 rounded-xl bg-red-500 py-2 text-sm">Sair</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </main>
   );
 }
