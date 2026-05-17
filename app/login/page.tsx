@@ -101,7 +101,7 @@ export default function LoginPage() {
               Não utilizamos grupos de WhatsApp, nem Telegram.
             </p>
             <p className="mt-2 text-xs leading-relaxed text-white">
-              Para dúvidas, use o ícone verde no canto direito.
+              Para dúvidas, clica no icon de mensagem ou chat global.
             </p>
           </div>
         )}

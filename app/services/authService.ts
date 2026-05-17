@@ -264,7 +264,7 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
     finalReturn: 17000,
     isPremium: true,
     isBacklog: true,
-  },
+    },
 ];
 
 const ADMIN_PHONE = "869933273";
@@ -1818,7 +1818,69 @@ export async function getTodayHistory(uid: string) {
     ...item.data(),
   }));
 
-  const merged = [...transactions, ...referralEarnings, ...wheelSpins];
+  const merged = [...transactions, ...referralEarnings, ...wheelSpins,
+  // ===== NOVOS INVESTIMENTOS HYBR 5 - acúmulo diário, liberação no final =====
+  {
+    id: "hybr-6",
+    name: "HYBR-6",
+    amount: 500,
+    dailyRate: 3.0,
+    durationDays: 15,
+    finalReturn: 545,
+    isPremium: false,
+    isBacklog: false,
+    accumulate: true,
+    availableAt: new Date('2026-05-18T00:00:00Z')
+  },
+  {
+    id: "hybr-7",
+    name: "HYBR-7",
+    amount: 1000,
+    dailyRate: 2.5,
+    durationDays: 20,
+    finalReturn: 1500,
+    isPremium: false,
+    isBacklog: true,
+    accumulate: true,
+    availableAt: new Date('2026-05-18T00:00:00Z')
+  },
+  {
+    id: "hybr-8",
+    name: "HYBR-8",
+    amount: 1500,
+    dailyRate: 2.8,
+    durationDays: 25,
+    finalReturn: 2500,
+    isPremium: false,
+    isBacklog: false,
+    accumulate: true,
+    availableAt: new Date('2026-05-18T00:00:00Z')
+  },
+  {
+    id: "hybr-9",
+    name: "HYBR-9",
+    amount: 2000,
+    dailyRate: 3.1,
+    durationDays: 30,
+    finalReturn: 2900,
+    isPremium: false,
+    isBacklog: false,
+    accumulate: true,
+    availableAt: new Date('2026-05-18T00:00:00Z')
+  },
+  {
+    id: "hybr-10",
+    name: "HYBR-10",
+    amount: 5000,
+    dailyRate: 2.7,
+    durationDays: 40,
+    finalReturn: 7400,
+    isPremium: false,
+    isBacklog: false,
+    accumulate: true,
+    availableAt: new Date('2026-05-18T00:00:00Z')
+  },
+];
 
   return merged
     .filter((item: any) => {
