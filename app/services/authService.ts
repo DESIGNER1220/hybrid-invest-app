@@ -222,7 +222,7 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
     dailyRate: 25,
     durationDays: 26,
     finalReturn: 650, // 25 * 26
-    isPremium: false,
+    isPremium: true,
     isBacklog: true, // flag para identificar backlog
   },
   {
@@ -242,7 +242,7 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
     dailyRate: 150,
     durationDays: 10,
     finalReturn: 1500,
-    isPremium: false,
+    isPremium: true,
     isBacklog: true,
   },
   {
@@ -252,7 +252,7 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
     dailyRate: 850,
     durationDays: 10,
     finalReturn: 8500,
-    isPremium: false,
+    isPremium: true,
     isBacklog: true,
   },
   {
