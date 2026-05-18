@@ -42,7 +42,61 @@ const PLAN_IMAGES: Record<string, string> = {
   "alto-btc-6": "/plans/alto-btc-6.png",
   "alto-btc-7": "/plans/alto-btc-7.png",
   "alto-btc-8": "/plans/alto-btc-8.png",
+
+  "bt1h": "/plans/hybr-1-new.png",
+  "bt2h": "/plans/hybr-2-new.png",
+  "bt3h": "/plans/hybr-3-new.png",
+  "bt4f": "/plans/hybr-4-new.png",
+  "bt5f": "/plans/hybr-5-new.png",
 };
+
+const STAR_HYBR_PLANS = [
+  {
+    id: "bt1h",
+    name: "⭐ BT1H",
+    amount: 500,
+    dailyRate: 5.87,
+    durationDays: 15,
+    finalReturn: 940,
+    isPremium: false,
+  },
+  {
+    id: "bt2h",
+    name: "⭐ BT2H",
+    amount: 700,
+    dailyRate: 7.62,
+    durationDays: 15,
+    finalReturn: 1500,
+    isPremium: false,
+  },
+  {
+    id: "bt3h",
+    name: "⭐ BT3H",
+    amount: 2000,
+    dailyRate: 3.67,
+    durationDays: 15,
+    finalReturn: 3100,
+    isPremium: false,
+  },
+  {
+    id: "bt4f",
+    name: "⭐ BT4F",
+    amount: 5000,
+    dailyRate: 4.67,
+    durationDays: 15,
+    finalReturn: 8500,
+    isPremium: false,
+  },
+  {
+    id: "bt5f",
+    name: "⭐ BT5F",
+    amount: 10000,
+    dailyRate: 4.67,
+    durationDays: 15,
+    finalReturn: 17000,
+    isPremium: false,
+  },
+] as InvestmentPlan[];
 
 const NORMAL_PLANS_EXPIRY_KEY = "hybr_normal_plans_expire_at";
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -82,6 +136,13 @@ function formatCountdown(ms: number) {
   }
 
   return `${hours}h ${minutes}m ${seconds}s`;
+}
+
+function calculateDailyProfitMoney(plan: InvestmentPlan) {
+  const amount = Number(plan.amount ?? 0);
+  const dailyRate = Number(plan.dailyRate ?? 0);
+
+  return Math.round(amount * (dailyRate / 100));
 }
 
 export default function InvestimentosPage() {
@@ -143,7 +204,10 @@ export default function InvestimentosPage() {
 
     const planIsNormal = INVESTMENT_PLANS.some(
       (plan) =>
-        plan.id === planId && !plan.isPremium && !plan.id.startsWith("alto-btc")
+        plan.id === planId &&
+        !plan.isPremium &&
+        !plan.id.startsWith("alto-btc") &&
+        !plan.id.startsWith("bt")
     );
 
     if (
@@ -203,10 +267,23 @@ export default function InvestimentosPage() {
   const normalPlans = useMemo(
     () =>
       INVESTMENT_PLANS.filter(
-        (p) => !p.isPremium && !p.id.startsWith("alto-btc")
+        (p) =>
+          !p.isPremium &&
+          !p.id.startsWith("alto-btc") &&
+          !p.id.startsWith("bt")
       ),
     []
   );
+
+  const starHybrPlans = useMemo(() => {
+    const plansFromAuthService = INVESTMENT_PLANS.filter((p) =>
+      p.id.startsWith("bt")
+    );
+
+    return plansFromAuthService.length > 0
+      ? plansFromAuthService
+      : STAR_HYBR_PLANS;
+  }, []);
 
   const normalPlansTimeLeft = useMemo(() => {
     if (normalPlansExpireAt === null) return THREE_DAYS_MS;
@@ -236,6 +313,8 @@ export default function InvestimentosPage() {
       Math.round(
         plan.amount + plan.amount * (plan.dailyRate / 100) * plan.durationDays
       );
+
+    const isStarPlan = plan.id.startsWith("bt");
 
     const accent = options?.accent || "green";
 
@@ -277,7 +356,7 @@ export default function InvestimentosPage() {
 
           <div className="mt-3 flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <h3 className="break-words text-[5px] font-extrabold leading-[7px] text-white drop-shadow">
+              <h3 className="break-words text-[10px] font-extrabold leading-[13px] text-white drop-shadow">
                 {plan.name}
               </h3>
 
@@ -298,10 +377,12 @@ export default function InvestimentosPage() {
           <div className="mt-3 grid grid-cols-2 gap-2">
             <div className="rounded-xl bg-[#073948]/70 px-2 py-2">
               <p className="text-[10px] font-semibold text-white/60">
-                Lucro diário
+                {isStarPlan ? "Lucro final" : "Lucro diário"}
               </p>
               <p className="text-[13px] font-black text-[#ffe071]">
-                {plan.dailyRate}%
+                {isStarPlan
+                  ? `${formatMoney(finalReturn)} MT`
+                  : `${formatMoney(calculateDailyProfitMoney(plan))} MT`}
               </p>
             </div>
 
@@ -318,7 +399,7 @@ export default function InvestimentosPage() {
           <div className="mt-2 rounded-xl bg-[#073948]/70 px-2 py-2">
             <div className="flex items-center justify-between gap-2">
               <p className="text-[10px] font-semibold text-white/60">
-                Retorno
+                {isStarPlan ? "Acumulado" : "Retorno"}
               </p>
               <p className="text-[13px] font-black text-[#48e07a]">
                 {formatMoney(finalReturn)} MT
@@ -475,16 +556,11 @@ export default function InvestimentosPage() {
             }
           )}
 
-          {!normalPlansAreAvailable && (
-            <div className="rounded-[22px] border border-white/10 bg-[#126080]/70 p-5 text-center shadow-[0_10px_25px_rgba(0,0,0,0.28)] backdrop-blur-md">
-              <p className="text-lg font-black text-white">
-                Planos HYBR esgotados
-              </p>
-              <p className="mt-2 text-sm font-semibold text-white/70">
-                Novos planos estarão disponíveis em breve.
-              </p>
-            </div>
-          )}
+          {renderSection("Novos planos HYBR", starHybrPlans, {
+            badge: "⭐",
+            accent: "gold",
+            rightLabel: "Estrelas",
+          })}
 
           {renderSection("Premium", premiumPlans, {
             badge: "VIP",

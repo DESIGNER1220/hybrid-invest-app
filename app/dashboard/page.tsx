@@ -52,7 +52,7 @@ export default function DashboardPage() {
   const [showReferralModal, setShowReferralModal] = useState(false);
   const [referralCode, setReferralCode] = useState("");
   const [showCompanyModal, setShowCompanyModal] = useState(false);
-  const siteLink = "https://hybridmining.com";
+  const siteLink = "https://www.hybrunimoz.mom";
   const companyLocation = "Montepuez, Cabo Delgado — Moçambique";
 
   async function load(uid: string) {
@@ -208,7 +208,130 @@ export default function DashboardPage() {
       </div>
 
       <BottomNav />
-      {/* Modais e Logout permanecem iguais */}
+      {/* Modal de convite */}
+      {showReferralModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-sm rounded-[26px] border border-white/20 bg-[#071d20] p-5 text-white shadow-2xl">
+            <h2 className="text-xl font-extrabold text-amber-300">
+              Invite Friends
+            </h2>
+
+            <p className="mt-3 text-sm text-white/80">
+              Partilhe o seu link de convite com amigos:
+            </p>
+
+            <div className="mt-4 rounded-2xl bg-black/60 p-3">
+              <p className="break-all text-sm font-bold text-cyan-300">
+                {`${siteLink}?ref=${referralCode}`}
+              </p>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={copyReferralLink}
+                className="rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white shadow-lg active:scale-[0.98]"
+              >
+                Copiar link
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowReferralModal(false)}
+                className="rounded-2xl bg-white/10 px-4 py-3 text-sm font-bold text-white shadow-lg active:scale-[0.98]"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de empresa / agência */}
+      {showCompanyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-sm rounded-[26px] border border-white/20 bg-[#071d20] p-5 text-white shadow-2xl">
+            <h2 className="text-xl font-extrabold text-amber-300">
+              Hybrid Mining Company
+            </h2>
+
+            <p className="mt-3 text-sm leading-6 text-white/85">
+              A HYBRID MINING é uma plataforma de Investimentos digitais com foco
+              em planos de rendimento, aluguer de máquinas , Ligado ao mundo desde 2020, a plataforma está  em Moçambique desde 02 de abril de 2026. e crescimento por
+              convite.
+            </p>
+
+            <div className="mt-4 rounded-2xl bg-black/60 p-3">
+              <p className="text-xs uppercase tracking-wide text-white/60">
+                Website
+              </p>
+              <p className="mt-1 break-all text-sm font-bold text-cyan-300">
+                {siteLink}
+              </p>
+            </div>
+
+            <div className="mt-3 rounded-2xl bg-black/60 p-3">
+              <p className="text-xs uppercase tracking-wide text-white/60">
+                Localização
+              </p>
+              <p className="mt-1 text-sm font-bold text-white">
+                {companyLocation}
+              </p>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => window.open(siteLink, "_blank")}
+                className="rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white shadow-lg active:scale-[0.98]"
+              >
+                Abrir link
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowCompanyModal(false)}
+                className="rounded-2xl bg-white/10 px-4 py-3 text-sm font-bold text-white shadow-lg active:scale-[0.98]"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmação de logout */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-sm rounded-[26px] border border-white/20 bg-[#071d20] p-5 text-white shadow-2xl">
+            <h2 className="text-xl font-extrabold text-red-300">
+              Sair da conta
+            </h2>
+
+            <p className="mt-3 text-sm text-white/80">
+              Tem certeza que deseja terminar a sessão?
+            </p>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-2xl bg-red-500 px-4 py-3 text-sm font-bold text-white shadow-lg active:scale-[0.98]"
+              >
+                Sim, sair
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="rounded-2xl bg-white/10 px-4 py-3 text-sm font-bold text-white shadow-lg active:scale-[0.98]"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
