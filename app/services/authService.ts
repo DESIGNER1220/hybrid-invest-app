@@ -319,6 +319,7 @@ export const INVESTMENT_PLANS: InvestmentPlan[] = [
 ];
 
 const ADMIN_PHONE = "869933273";
+const SIGNUP_BONUS_AMOUNT = 40;
 const MIN_WITHDRAWAL_AMOUNT = 200;
 const WITHDRAWAL_START_HOUR = 10;
 const WITHDRAWAL_END_HOUR = 22;
@@ -711,7 +712,10 @@ export async function registerUser(params: {
     referralCode,
     referredBy: validRefCode,
     balance: 0,
-    bonus: 0,
+    bonus: SIGNUP_BONUS_AMOUNT,
+    signupBonusAmount: SIGNUP_BONUS_AMOUNT,
+    signupBonusGranted: true,
+    signupBonusLockedUntilFirstInvestment: true,
     totalProfit: 0,
     manualProfitAdjustment: 0,
     profitUsed: 0,
@@ -720,6 +724,9 @@ export async function registerUser(params: {
     vipLevel: "VIP1",
     withdrawalFeePercent: 12,
     hasDeposited: false,
+    hasInvested: false,
+    totalInvested: 0,
+    investmentCount: 0,
     role,
     blocked: false,
     spinsUsedToday: 0,
@@ -930,6 +937,18 @@ export async function createTransaction(params: {
     }
   }
 
+  let totalInvestedBeforeWithdrawal = 0;
+
+  if (type === "levantamento") {
+    totalInvestedBeforeWithdrawal = await getTotalInvested(uid);
+
+    if (totalInvestedBeforeWithdrawal <= 0) {
+      throw new Error(
+        "Para fazer levantamento, é necessário realizar primeiro um investimento."
+      );
+    }
+  }
+
   if (type === "deposito") {
     await addDoc(collection(db, "transactions"), {
       uid,
@@ -974,6 +993,12 @@ export async function createTransaction(params: {
     const vipLevelsAllowedAboveMinimum = ["VIP2", "VIP3", "VIP4", "VIP5"];
     const isVip2OrHigher = vipLevelsAllowedAboveMinimum.includes(vipLevel);
     if (!isVip2OrHigher && cleanAmount > 200) throw new Error("Apenas utilizadores VIP2 ou superior podem levantar acima de 200 MZN.");
+    }
+
+    if (userData.hasInvested !== true && totalInvestedBeforeWithdrawal <= 0) {
+      throw new Error(
+        "Para fazer levantamento, é necessário realizar primeiro um investimento."
+      );
     }
 
     const reservation = calculateWithdrawalReservation(userData, cleanAmount);
@@ -1419,6 +1444,11 @@ export async function buyInvestmentPlan(params: {
       balance: round2(currentBalance),
       bonus: round2(currentBonus),
       profitUsed: round2(currentProfitUsed + extraProfitUsed),
+      hasInvested: true,
+      signupBonusLockedUntilFirstInvestment: false,
+      totalInvested: increment(planAmount),
+      investmentCount: increment(1),
+      lastInvestmentAt: serverTimestamp(),
     });
   });
 
